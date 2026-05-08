@@ -1,0 +1,32 @@
+export const ANALYTICS_EVENTS = {
+  PAGE_VIEW: "page_view",
+  SESSION_START: "session_start",
+  VIEW_HOMEPAGE: "view_homepage",
+  VIEW_LANDING_PAGE: "view_landing_page",
+  SEARCH: "search",
+  VIEW_SEARCH_RESULTS: "view_search_results",
+  SEARCH_NO_RESULT: "search_no_result",
+  SELECT_SEARCH_RESULT: "select_search_result",
+  VIEW_CATEGORY: "view_category",
+  VIEW_COLLECTION: "view_collection",
+  APPLY_FILTER: "apply_filter",
+  REMOVE_FILTER: "remove_filter",
+  APPLY_SORT: "apply_sort",
+  CLICK_PRODUCT_CARD: "click_product_card",
+  VIEW_ITEM: "view_item",
+  CLICK_RELATED_PRODUCT: "click_related_product",
+  ADD_TO_CART: "add_to_cart",
+  REMOVE_FROM_CART: "remove_from_cart",
+  UPDATE_CART_QUANTITY: "update_cart_quantity",
+  VIEW_CART: "view_cart",
+  BEGIN_CHECKOUT: "begin_checkout",
+  ADD_SHIPPING_INFO: "add_shipping_info",
+  SELECT_PAYMENT_METHOD: "select_payment_method",
+  CHECKOUT_ERROR: "checkout_error",
+  PURCHASE: "purchase",
+  PAYMENT_SUCCESS: "payment_success",
+  PAYMENT_FAILED: "payment_failed",
+} as const;
+
+export type AnalyticsEventName =
+  (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];

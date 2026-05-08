@@ -1,0 +1,765 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CurrencyCode {
+  VND
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  CONTENT_EDITOR
+  OPS
+}
+
+enum AdminPermission {
+  CATALOG_MANAGE
+  CONTENT_REVIEW
+  ORDER_MANAGE
+  ANALYTICS_VIEW
+}
+
+enum AvailabilityStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+}
+
+enum PublishStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PLACED
+  AWAITING_TRANSFER
+  CONFIRMED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  AWAITING_VERIFICATION
+  PAID
+  FAILED
+}
+
+enum PaymentMethodCode {
+  COD
+  BANK_TRANSFER
+}
+
+enum CheckoutAttemptStatus {
+  STARTED
+  SHIPPING_INFO_CAPTURED
+  PAYMENT_METHOD_SELECTED
+  READY_TO_PLACE
+  COMPLETED
+  EXPIRED
+  ABANDONED
+}
+
+enum ContentImportJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  PARTIAL_SUCCESS
+}
+
+enum StagedBookStatus {
+  IMPORTED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+enum AnalyticsDeliveryStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+}
+
+enum AnalyticsEventName {
+  PAGE_VIEW
+  SESSION_START
+  VIEW_HOMEPAGE
+  VIEW_LANDING_PAGE
+  SEARCH
+  VIEW_SEARCH_RESULTS
+  SEARCH_NO_RESULT
+  SELECT_SEARCH_RESULT
+  VIEW_CATEGORY
+  VIEW_COLLECTION
+  APPLY_FILTER
+  REMOVE_FILTER
+  APPLY_SORT
+  CLICK_PRODUCT_CARD
+  VIEW_ITEM
+  CLICK_RELATED_PRODUCT
+  ADD_TO_CART
+  REMOVE_FROM_CART
+  UPDATE_CART_QUANTITY
+  VIEW_CART
+  BEGIN_CHECKOUT
+  ADD_SHIPPING_INFO
+  SELECT_PAYMENT_METHOD
+  CHECKOUT_ERROR
+  PURCHASE
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+}
+
+model AppHealthcheck {
+  id        String   @id @default(cuid())
+  label     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Author {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  biography String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  books     Book[]
+
+  @@index([name])
+  @@map("authors")
+}
+
+model Publisher {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  books       Book[]
+
+  @@index([name])
+  @@map("publishers")
+}
+
+model Category {
+  id               String            @id @default(cuid())
+  slug             String            @unique
+  name             String
+  description      String?
+  isFeatured       Boolean           @default(false) @map("is_featured")
+  sortOrder        Int               @default(0) @map("sort_order")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  bookCategories   BookCategory[]
+  factProductViews FactProductView[]
+  factOrders       FactOrder[]
+
+  @@index([name])
+  @@index([sortOrder])
+  @@map("categories")
+}
+
+model Book {
+  id                 String             @id @default(cuid())
+  slug               String             @unique
+  title              String
+  subtitle           String?
+  shortDescription   String?            @map("short_description")
+  description        String?
+  coverImageUrl      String?            @map("cover_image_url")
+  authorId           String             @map("author_id")
+  publisherId        String             @map("publisher_id")
+  publishStatus      PublishStatus      @default(DRAFT) @map("publish_status")
+  availabilityStatus AvailabilityStatus @default(IN_STOCK) @map("availability_status")
+  priceAmount        Int                @map("price_amount")
+  compareAtAmount    Int?               @map("compare_at_amount")
+  shippingFeeAmount  Int                @default(30000) @map("shipping_fee_amount")
+  currency           CurrencyCode       @default(VND)
+  pageCount          Int?               @map("page_count")
+  languageCode       String?            @map("language_code")
+  isbn               String?            @unique
+  publishedAt        DateTime?          @map("published_at")
+  inventoryQuantity  Int                @default(0) @map("inventory_quantity")
+  isFeatured         Boolean            @default(false) @map("is_featured")
+  isBestseller       Boolean            @default(false) @map("is_bestseller")
+  isRecommended      Boolean            @default(false) @map("is_recommended")
+  sortWeight         Int                @default(0) @map("sort_weight")
+  keywords           String[]           @default([])
+  metadata           Json?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  author             Author             @relation(fields: [authorId], references: [id])
+  publisher          Publisher          @relation(fields: [publisherId], references: [id])
+  bookCategories     BookCategory[]
+  collectionItems    CollectionItem[]
+  cartItems          CartItem[]
+  orderItems         OrderItem[]
+  stagedBooks        StagedBook[]
+  factSearches       FactSearch[]
+  factProductViews   FactProductView[]
+  factCartEvents     FactCartEvent[]
+  factOrders         FactOrder[]
+
+  @@index([title])
+  @@index([authorId])
+  @@index([publisherId])
+  @@index([publishStatus, availabilityStatus])
+  @@index([priceAmount])
+  @@index([createdAt])
+  @@index([publishedAt])
+  @@index([isFeatured, isBestseller, isRecommended])
+  @@index([sortWeight, createdAt])
+  @@map("books")
+}
+
+model BookCategory {
+  bookId     String   @map("book_id")
+  categoryId String   @map("category_id")
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  position   Int      @default(0)
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([bookId, categoryId])
+  @@index([categoryId, position])
+  @@index([bookId, isPrimary])
+  @@map("book_categories")
+}
+
+model Collection {
+  id               String            @id @default(cuid())
+  slug             String            @unique
+  name             String
+  description      String?
+  coverImageUrl    String?           @map("cover_image_url")
+  publishStatus    PublishStatus     @default(DRAFT) @map("publish_status")
+  isFeatured       Boolean           @default(false) @map("is_featured")
+  sortOrder        Int               @default(0) @map("sort_order")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  items            CollectionItem[]
+  factProductViews FactProductView[]
+
+  @@index([publishStatus, sortOrder])
+  @@index([name])
+  @@map("collections")
+}
+
+model CollectionItem {
+  collectionId String     @map("collection_id")
+  bookId       String     @map("book_id")
+  position     Int        @default(0)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  book         Book       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, bookId])
+  @@index([bookId])
+  @@index([collectionId, position])
+  @@map("collection_items")
+}
+
+model User {
+  id                   String                 @id @default(cuid())
+  email                String                 @unique
+  fullName             String                 @map("full_name")
+  passwordHash         String                 @map("password_hash")
+  phoneNumber          String?                @map("phone_number")
+  role                 UserRole               @default(CUSTOMER)
+  permissions          AdminPermission[]      @default([])
+  isActive             Boolean                @default(true) @map("is_active")
+  lastLoginAt          DateTime?              @map("last_login_at")
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  carts                Cart[]
+  checkoutAttempts     CheckoutAttempt[]
+  orders               Order[]
+  contentImportJobs    ContentImportJob[]
+  reviewedStagedBooks  StagedBook[]
+  analyticsEventOutbox AnalyticsEventOutbox[]
+  factSessions         FactSession[]
+  factSearches         FactSearch[]
+  factProductViews     FactProductView[]
+  factCartEvents       FactCartEvent[]
+  factCheckoutEvents   FactCheckoutEvent[]
+  factOrders           FactOrder[]
+
+  @@index([role, isActive])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Session {
+  sid    String   @id @db.VarChar(255)
+  sess   Json
+  expire DateTime
+
+  @@index([expire], map: "IDX_sessions_expire")
+  @@map("sessions")
+}
+
+model Cart {
+  id                String                 @id @default(cuid())
+  userId            String?                @map("user_id")
+  sessionId         String?                @map("session_id")
+  currency          CurrencyCode           @default(VND)
+  itemCount         Int                    @default(0) @map("item_count")
+  subtotalAmount    Int                    @default(0) @map("subtotal_amount")
+  shippingFeeAmount Int                    @default(0) @map("shipping_fee_amount")
+  totalAmount       Int                    @default(0) @map("total_amount")
+  isActive          Boolean                @default(true) @map("is_active")
+  lastActivityAt    DateTime               @default(now()) @map("last_activity_at")
+  checkedOutAt      DateTime?              @map("checked_out_at")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  user              User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items             CartItem[]
+  checkoutAttempts  CheckoutAttempt[]
+  sourceOrders      Order[]
+  analyticsEvents   AnalyticsEventOutbox[]
+  factCartEvents    FactCartEvent[]
+
+  @@index([userId, isActive])
+  @@index([sessionId, isActive])
+  @@index([lastActivityAt])
+  @@map("carts")
+}
+
+model CartItem {
+  id                 String       @id @default(cuid())
+  cartId             String       @map("cart_id")
+  bookId             String       @map("book_id")
+  quantity           Int
+  unitPriceAmount    Int          @map("unit_price_amount")
+  compareAtAmount    Int?         @map("compare_at_amount")
+  shippingFeeAmount  Int          @default(0) @map("shipping_fee_amount")
+  lineSubtotalAmount Int          @map("line_subtotal_amount")
+  lineTotalAmount    Int          @map("line_total_amount")
+  currency           CurrencyCode @default(VND)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+  cart               Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  book               Book         @relation(fields: [bookId], references: [id])
+
+  @@unique([cartId, bookId])
+  @@index([bookId])
+  @@map("cart_items")
+}
+
+model CheckoutAttempt {
+  id                      String                @id @default(cuid())
+  cartId                  String                @map("cart_id")
+  userId                  String?               @map("user_id")
+  sessionId               String?               @map("session_id")
+  status                  CheckoutAttemptStatus @default(STARTED)
+  shippingFullName        String?               @map("shipping_full_name")
+  shippingPhoneNumber     String?               @map("shipping_phone_number")
+  shippingAddressLine1    String?               @map("shipping_address_line1")
+  shippingWard            String?               @map("shipping_ward")
+  shippingDistrict        String?               @map("shipping_district")
+  shippingProvince        String?               @map("shipping_province")
+  shippingNote            String?               @map("shipping_note")
+  paymentMethod           PaymentMethodCode?    @map("payment_method")
+  currency                CurrencyCode          @default(VND)
+  subtotalAmount          Int                   @default(0) @map("subtotal_amount")
+  shippingFeeAmount       Int                   @default(0) @map("shipping_fee_amount")
+  totalAmount             Int                   @default(0) @map("total_amount")
+  lastErrorCode           String?               @map("last_error_code")
+  lastErrorMessage        String?               @map("last_error_message")
+  startedAt               DateTime              @default(now()) @map("started_at")
+  shippingInfoSubmittedAt DateTime?             @map("shipping_info_submitted_at")
+  paymentMethodSelectedAt DateTime?             @map("payment_method_selected_at")
+  completedAt             DateTime?             @map("completed_at")
+  expiresAt               DateTime?             @map("expires_at")
+  createdAt               DateTime              @default(now()) @map("created_at")
+  updatedAt               DateTime              @updatedAt @map("updated_at")
+  cart                    Cart                  @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  user                    User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order                   Order?
+  factCheckoutEvents      FactCheckoutEvent[]
+
+  @@index([cartId, status])
+  @@index([userId, startedAt])
+  @@index([sessionId, startedAt])
+  @@map("checkout_attempts")
+}
+
+model Order {
+  id                  String                 @id @default(cuid())
+  orderNumber         String                 @unique @map("order_number")
+  idempotencyKey      String?                @unique @map("idempotency_key")
+  userId              String?                @map("user_id")
+  sourceCartId        String?                @map("source_cart_id")
+  checkoutAttemptId   String?                @unique @map("checkout_attempt_id")
+  sessionId           String?                @map("session_id")
+  status              OrderStatus            @default(PLACED)
+  paymentStatus       PaymentStatus          @default(PENDING) @map("payment_status")
+  paymentMethod       PaymentMethodCode      @map("payment_method")
+  currency            CurrencyCode           @default(VND)
+  itemCount           Int                    @default(0) @map("item_count")
+  subtotalAmount      Int                    @map("subtotal_amount")
+  shippingFeeAmount   Int                    @map("shipping_fee_amount")
+  totalAmount         Int                    @map("total_amount")
+  customerEmail       String?                @map("customer_email")
+  customerFullName    String                 @map("customer_full_name")
+  customerPhoneNumber String                 @map("customer_phone_number")
+  internalNote        String?                @map("internal_note")
+  cancellationReason  String?                @map("cancellation_reason")
+  placedAt            DateTime               @default(now()) @map("placed_at")
+  confirmedAt         DateTime?              @map("confirmed_at")
+  packedAt            DateTime?              @map("packed_at")
+  shippedAt           DateTime?              @map("shipped_at")
+  deliveredAt         DateTime?              @map("delivered_at")
+  cancelledAt         DateTime?              @map("cancelled_at")
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
+  user                User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sourceCart          Cart?                  @relation(fields: [sourceCartId], references: [id], onDelete: SetNull)
+  checkoutAttempt     CheckoutAttempt?       @relation(fields: [checkoutAttemptId], references: [id], onDelete: SetNull)
+  address             OrderAddress?
+  items               OrderItem[]
+  paymentRecords      PaymentRecord[]
+  analyticsEvents     AnalyticsEventOutbox[]
+  factCheckoutEvents  FactCheckoutEvent[]
+  factOrders          FactOrder[]
+
+  @@index([userId, placedAt])
+  @@index([status, placedAt])
+  @@index([paymentStatus, placedAt])
+  @@index([paymentMethod, placedAt])
+  @@index([sessionId, placedAt])
+  @@map("orders")
+}
+
+model OrderAddress {
+  id            String   @id @default(cuid())
+  orderId       String   @unique @map("order_id")
+  recipientName String   @map("recipient_name")
+  phoneNumber   String   @map("phone_number")
+  addressLine1  String   @map("address_line1")
+  ward          String?
+  district      String
+  province      String
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([province, district])
+  @@map("order_addresses")
+}
+
+model OrderItem {
+  id                 String       @id @default(cuid())
+  orderId            String       @map("order_id")
+  bookId             String?      @map("book_id")
+  bookSlug           String       @map("book_slug")
+  bookTitle          String       @map("book_title")
+  authorName         String       @map("author_name")
+  publisherName      String       @map("publisher_name")
+  coverImageUrl      String?      @map("cover_image_url")
+  quantity           Int
+  unitPriceAmount    Int          @map("unit_price_amount")
+  compareAtAmount    Int?         @map("compare_at_amount")
+  shippingFeeAmount  Int          @default(0) @map("shipping_fee_amount")
+  lineSubtotalAmount Int          @map("line_subtotal_amount")
+  lineTotalAmount    Int          @map("line_total_amount")
+  currency           CurrencyCode @default(VND)
+  snapshotMetadata   Json?        @map("snapshot_metadata")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  order              Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  book               Book?        @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  factOrders         FactOrder[]
+
+  @@index([orderId])
+  @@index([bookId])
+  @@map("order_items")
+}
+
+model PaymentRecord {
+  id                String            @id @default(cuid())
+  orderId           String            @map("order_id")
+  status            PaymentStatus     @default(PENDING)
+  method            PaymentMethodCode
+  amount            Int
+  currency          CurrencyCode      @default(VND)
+  attemptNumber     Int               @default(1) @map("attempt_number")
+  externalReference String?           @map("external_reference")
+  proofUrl          String?           @map("proof_url")
+  note              String?
+  rawPayload        Json?             @map("raw_payload")
+  paidAt            DateTime?         @map("paid_at")
+  verifiedAt        DateTime?         @map("verified_at")
+  failedAt          DateTime?         @map("failed_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, status])
+  @@index([method, status])
+  @@index([externalReference])
+  @@map("payment_records")
+}
+
+model ContentImportJob {
+  id                String                 @id @default(cuid())
+  source            String
+  sourceReference   String?                @map("source_reference")
+  triggeredByUserId String?                @map("triggered_by_user_id")
+  status            ContentImportJobStatus @default(PENDING)
+  totalRecords      Int                    @default(0) @map("total_records")
+  processedRecords  Int                    @default(0) @map("processed_records")
+  successfulRecords Int                    @default(0) @map("successful_records")
+  failedRecords     Int                    @default(0) @map("failed_records")
+  errorSummary      String?                @map("error_summary")
+  metadata          Json?
+  startedAt         DateTime?              @map("started_at")
+  completedAt       DateTime?              @map("completed_at")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  triggeredByUser   User?                  @relation(fields: [triggeredByUserId], references: [id], onDelete: SetNull)
+  stagedBooks       StagedBook[]
+
+  @@index([status, createdAt])
+  @@index([triggeredByUserId, createdAt])
+  @@map("content_import_jobs")
+}
+
+model StagedBook {
+  id                String            @id @default(cuid())
+  importJobId       String?           @map("import_job_id")
+  reviewerUserId    String?           @map("reviewer_user_id")
+  mappedBookId      String?           @map("mapped_book_id")
+  sourceRecordId    String?           @map("source_record_id")
+  sourceUrl         String?           @map("source_url")
+  status            StagedBookStatus  @default(IMPORTED)
+  title             String
+  authorName        String?           @map("author_name")
+  publisherName     String?           @map("publisher_name")
+  isbn              String?
+  priceAmount       Int?              @map("price_amount")
+  compareAtAmount   Int?              @map("compare_at_amount")
+  coverImageUrl     String?           @map("cover_image_url")
+  shortDescription  String?           @map("short_description")
+  description       String?
+  keywords          String[]          @default([])
+  rawPayload        Json?             @map("raw_payload")
+  normalizedPayload Json?             @map("normalized_payload")
+  rejectReason      String?           @map("reject_reason")
+  reviewedAt        DateTime?         @map("reviewed_at")
+  publishedAt       DateTime?         @map("published_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  importJob         ContentImportJob? @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  reviewerUser      User?             @relation(fields: [reviewerUserId], references: [id], onDelete: SetNull)
+  mappedBook        Book?             @relation(fields: [mappedBookId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([importJobId, status])
+  @@index([mappedBookId])
+  @@index([sourceRecordId])
+  @@map("staged_books")
+}
+
+model AnalyticsEventOutbox {
+  id             String                  @id @default(cuid())
+  dedupeKey      String?                 @unique @map("dedupe_key")
+  eventName      AnalyticsEventName      @map("event_name")
+  deliveryStatus AnalyticsDeliveryStatus @default(PENDING) @map("delivery_status")
+  sourceModule   String?                 @map("source_module")
+  sessionId      String?                 @map("session_id")
+  cartId         String?                 @map("cart_id")
+  orderId        String?                 @map("order_id")
+  userId         String?                 @map("user_id")
+  isCritical     Boolean                 @default(false) @map("is_critical")
+  occurredAt     DateTime                @map("occurred_at")
+  payload        Json
+  attemptCount   Int                     @default(0) @map("attempt_count")
+  lastAttemptAt  DateTime?               @map("last_attempt_at")
+  deliveredAt    DateTime?               @map("delivered_at")
+  failedAt       DateTime?               @map("failed_at")
+  failureReason  String?                 @map("failure_reason")
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+  cart           Cart?                   @relation(fields: [cartId], references: [id], onDelete: SetNull)
+  order          Order?                  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  user           User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([deliveryStatus, occurredAt])
+  @@index([eventName, occurredAt])
+  @@index([sessionId, occurredAt])
+  @@index([cartId, occurredAt])
+  @@index([orderId, occurredAt])
+  @@index([userId, occurredAt])
+  @@map("analytics_event_outbox")
+}
+
+model FactSession {
+  id             String    @id @default(cuid())
+  sessionId      String    @unique @map("session_id")
+  userId         String?   @map("user_id")
+  isLoggedIn     Boolean   @default(false) @map("is_logged_in")
+  deviceType     String?   @map("device_type")
+  landingPath    String?   @map("landing_path")
+  referrer       String?
+  startedAt      DateTime  @map("started_at")
+  endedAt        DateTime? @map("ended_at")
+  lastSeenAt     DateTime  @map("last_seen_at")
+  pageViewCount  Int       @default(0) @map("page_view_count")
+  searchCount    Int       @default(0) @map("search_count")
+  cartEventCount Int       @default(0) @map("cart_event_count")
+  checkoutCount  Int       @default(0) @map("checkout_count")
+  purchaseCount  Int       @default(0) @map("purchase_count")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([startedAt])
+  @@index([userId, startedAt])
+  @@index([deviceType, startedAt])
+  @@map("fact_sessions")
+}
+
+model FactSearch {
+  id              String   @id @default(cuid())
+  sessionId       String?  @map("session_id")
+  userId          String?  @map("user_id")
+  bookId          String?  @map("book_id")
+  query           String
+  normalizedQuery String   @map("normalized_query")
+  resultCount     Int      @default(0) @map("result_count")
+  noResult        Boolean  @default(false) @map("no_result")
+  selectedRank    Int?     @map("selected_rank")
+  occurredAt      DateTime @map("occurred_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  book            Book?    @relation(fields: [bookId], references: [id], onDelete: SetNull)
+
+  @@index([normalizedQuery, occurredAt])
+  @@index([sessionId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([noResult, occurredAt])
+  @@map("fact_search")
+}
+
+model FactProductView {
+  id            String      @id @default(cuid())
+  sessionId     String?     @map("session_id")
+  userId        String?     @map("user_id")
+  bookId        String      @map("book_id")
+  categoryId    String?     @map("category_id")
+  collectionId  String?     @map("collection_id")
+  sourceContext String?     @map("source_context")
+  occurredAt    DateTime    @map("occurred_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  book          Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  category      Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  collection    Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  @@index([bookId, occurredAt])
+  @@index([sessionId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([categoryId, occurredAt])
+  @@index([collectionId, occurredAt])
+  @@map("fact_product_views")
+}
+
+model FactCartEvent {
+  id             String             @id @default(cuid())
+  sessionId      String?            @map("session_id")
+  userId         String?            @map("user_id")
+  cartId         String?            @map("cart_id")
+  bookId         String?            @map("book_id")
+  eventName      AnalyticsEventName @map("event_name")
+  quantity       Int?
+  subtotalAmount Int?               @map("subtotal_amount")
+  totalAmount    Int?               @map("total_amount")
+  occurredAt     DateTime           @map("occurred_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  user           User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  cart           Cart?              @relation(fields: [cartId], references: [id], onDelete: SetNull)
+  book           Book?              @relation(fields: [bookId], references: [id], onDelete: SetNull)
+
+  @@index([cartId, occurredAt])
+  @@index([sessionId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([bookId, occurredAt])
+  @@index([eventName, occurredAt])
+  @@map("fact_cart_events")
+}
+
+model FactCheckoutEvent {
+  id                String             @id @default(cuid())
+  sessionId         String?            @map("session_id")
+  userId            String?            @map("user_id")
+  orderId           String?            @map("order_id")
+  checkoutAttemptId String?            @map("checkout_attempt_id")
+  eventName         AnalyticsEventName @map("event_name")
+  paymentMethod     PaymentMethodCode? @map("payment_method")
+  totalAmount       Int?               @map("total_amount")
+  errorCode         String?            @map("error_code")
+  occurredAt        DateTime           @map("occurred_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  user              User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order             Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  checkoutAttempt   CheckoutAttempt?   @relation(fields: [checkoutAttemptId], references: [id], onDelete: SetNull)
+
+  @@index([checkoutAttemptId, occurredAt])
+  @@index([orderId, occurredAt])
+  @@index([sessionId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([eventName, occurredAt])
+  @@map("fact_checkout_events")
+}
+
+model FactOrder {
+  id                String            @id @default(cuid())
+  orderId           String            @map("order_id")
+  orderItemId       String            @unique @map("order_item_id")
+  orderNumber       String            @map("order_number")
+  sessionId         String?           @map("session_id")
+  userId            String?           @map("user_id")
+  bookId            String?           @map("book_id")
+  categoryId        String?           @map("category_id")
+  paymentMethod     PaymentMethodCode @map("payment_method")
+  orderStatus       OrderStatus       @map("order_status")
+  paymentStatus     PaymentStatus     @map("payment_status")
+  quantity          Int
+  subtotalAmount    Int               @map("subtotal_amount")
+  shippingFeeAmount Int               @map("shipping_fee_amount")
+  totalAmount       Int               @map("total_amount")
+  currency          CurrencyCode      @default(VND)
+  isGuestOrder      Boolean           @default(true) @map("is_guest_order")
+  orderedAt         DateTime          @map("ordered_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem         OrderItem         @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  user              User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  book              Book?             @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  category          Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([orderedAt])
+  @@index([paymentMethod, orderedAt])
+  @@index([bookId, orderedAt])
+  @@index([categoryId, orderedAt])
+  @@index([userId, orderedAt])
+  @@map("fact_orders")
+}
