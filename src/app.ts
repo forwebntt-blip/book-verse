@@ -14,6 +14,7 @@ import { createCartStorefrontRouter } from "./modules/cart";
 import { createCatalogStorefrontRouter } from "./modules/catalog";
 import { createCheckoutStorefrontRouter } from "./modules/checkout";
 import { createSearchStorefrontRouter } from "./modules/search";
+import { createSpaStorefrontRouter } from "./spa";
 import { errorHandler, notFoundHandler } from "./shared/middleware/error-handler";
 import { authContextMiddleware } from "./shared/middleware/auth-context";
 import { httpLoggerMiddleware } from "./shared/middleware/logging";
@@ -80,6 +81,12 @@ export function createApp() {
   app.use(authContextMiddleware);
   app.use(viewLocalsMiddleware);
   app.use(express.static(paths.public, { maxAge: isProduction ? "1d" : 0 }));
+  app.use(
+    express.static(paths.clientDist, {
+      index: false,
+      maxAge: isProduction ? "1d" : 0,
+    }),
+  );
 
   app.get("/health", async (_req, res, next) => {
     try {
@@ -115,12 +122,13 @@ export function createApp() {
 
   app.use("/api", apiRateLimit);
   app.use(csrfSynchronisedProtection);
-  app.use(createCatalogStorefrontRouter());
-  app.use(createSearchStorefrontRouter());
   app.use(createAuthStorefrontRouter());
-  app.use(createAdminStorefrontRouter());
   app.use(createCartStorefrontRouter());
+  app.use(createAdminStorefrontRouter());
+  app.use(createSpaStorefrontRouter());
+  app.use(createSearchStorefrontRouter());
   app.use(createCheckoutStorefrontRouter());
+  app.use(createCatalogStorefrontRouter());
   registerModuleRoutes(app);
 
   app.use(notFoundHandler);

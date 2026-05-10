@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "npm run dev:server",
     "dev:server": "tsx src/server.ts",
+    "dev:client": "vite --config client/vite.config.ts",
     "clean": "node scripts/clean.mjs",
-    "build": "npm run build:server",
+    "build": "npm run build:server && npm run build:client",
     "build:server": "tsc --project tsconfig.json",
+    "build:client": "vite build --config client/vite.config.ts",
     "start": "node dist/src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
@@ -22,7 +24,11 @@
     "test:part6": "tsx tests/manual/run-part6-selftest.ts",
     "test:part7": "tsx tests/manual/run-part7-selftest.ts",
     "test:part8": "tsx tests/manual/run-part8-selftest.ts",
-    "test:acceptance": "npm run test:part1-5 && npm run test:part6 && npm run test:part7 && npm run test:part8"
+    "test:part9": "tsx tests/manual/run-part9-selftest.ts",
+    "test:part10": "tsx tests/manual/run-part10-selftest.ts",
+    "test:acceptance": "npm run test:part1-5 && npm run test:part6 && npm run test:part7 && npm run test:part8",
+    "test:acceptance:extended": "npm run test:acceptance && npm run test:part9 && npm run test:part10",
+    "test:e2e": "playwright test"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -32,6 +38,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@fontsource/sora": "^5.2.6",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcryptjs": "^3.0.3",
@@ -48,10 +55,17 @@
     "morgan": "^1.10.1",
     "pg": "^8.20.0",
     "prisma": "^7.8.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1",
     "uuid": "^14.0.0",
     "zod": "^4.4.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.4.1",
     "@types/compression": "^1.8.1",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cookie-parser": "^1.4.10",
@@ -60,6 +74,7 @@
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.6.0",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite": "^5.4.14"
   }
 }

@@ -151,11 +151,11 @@ export class ContentOpsService {
     const overview = await this.listFilteredContentOpsOverview(input);
 
     return {
-      title: "V?n h?nh n?i dung",
-      description: "Theo d?i ti?n tr?nh nh?p d? li?u v? lu?ng duy?t n?i dung tr??c khi xu?t b?n l?n c?a h?ng.",
-      pageHeading: "V?n h?nh n?i dung",
+      title: "Vận hàng nội dung",
+      description: "Theo dõi tiến trình nhập dữ liệu về luồng duyệt nội dung trước khi xuất bản lên cửa hàng.",
+      pageHeading: "Vận hành nội dung",
       pageLead:
-        "D? li?u thu th?p v?o v?ng ch? ph?i ???c chu?n h?a, duy?t ho?c t? ch?i tr??c khi c? th? xu?t b?n sang danh m?c ch?nh.",
+        "Dữ liệu thu thập vào vùng chờ phải được chuẩn hóa, duyệt hoặc từ chối trước khi có thể xuất bản sang danh mục chính.",
       filters: {
         q: input.q ?? "",
         stagedStatus: input.stagedStatus,
@@ -294,7 +294,7 @@ export class ContentOpsService {
         throw new AppError({
           statusCode: 404,
           code: "STAGED_BOOK_NOT_FOUND",
-          message: "Kh?ng t?m th?y b?n ghi ch? duy?t.",
+          message: "Không tìm thấy bản ghi chờ duyệt.",
         });
       }
 
@@ -302,7 +302,7 @@ export class ContentOpsService {
         throw new AppError({
           statusCode: 409,
           code: "STAGED_BOOK_INVALID",
-          message: "B?n ghi ch? duy?t kh?ng c? ti?u ?? h?p l? ?? chu?n h?a.",
+          message: "Bản ghi chờ duyệt không có tiêu đề hợp lệ để chuẩn hóa",
         });
       }
 
@@ -334,7 +334,7 @@ export class ContentOpsService {
         throw new AppError({
           statusCode: 404,
           code: "STAGED_BOOK_NOT_FOUND",
-          message: "Kh?ng t?m th?y b?n ghi ch? duy?t.",
+          message: "Không tìm thấy bản ghi chờ duyệt",
         });
       }
 
@@ -369,7 +369,7 @@ export class ContentOpsService {
         throw new AppError({
           statusCode: 404,
           code: "STAGED_BOOK_NOT_FOUND",
-          message: "Kh?ng t?m th?y b?n ghi ch? duy?t.",
+          message: "Không tìm thấy bản ghi chờ duyệ.",
         });
       }
 
@@ -397,7 +397,7 @@ export class ContentOpsService {
         throw new AppError({
           statusCode: 404,
           code: "STAGED_BOOK_NOT_FOUND",
-          message: "Kh?ng t?m th?y b?n ghi ch? duy?t.",
+          message: "Không tìm thấy bản ghi chờ duyệt",
         });
       }
 
@@ -405,7 +405,7 @@ export class ContentOpsService {
         throw new AppError({
           statusCode: 409,
           code: "STAGED_BOOK_NOT_APPROVED",
-          message: "B?n ghi ch? duy?t ph?i ???c duy?t tr??c khi xu?t b?n.",
+          message: "Bản ghi chờ duyệt phải được duyệt trước khi xuất bản",
         });
       }
 
@@ -420,7 +420,7 @@ export class ContentOpsService {
         throw new AppError({
           statusCode: 409,
           code: "STAGED_BOOK_NOT_NORMALIZED",
-          message: "B?n ghi ch? duy?t ch?a ???c chu?n h?a h?p l?.",
+          message: "Bản ghi chờ duyệt chưa được chuẩn hoá hợp lệ",
         });
       }
 
@@ -446,7 +446,7 @@ export class ContentOpsService {
         throw new AppError({
           statusCode: 409,
           code: "STAGED_BOOK_MISSING_RELATIONS",
-          message: "B?n ghi ch? duy?t thi?u t?c gi? ho?c nh? xu?t b?n ?? xu?t b?n.",
+          message: "Bản ghi chờ duyệt thiéu tác giả hoặc nhà xuất bản",
         });
       }
 

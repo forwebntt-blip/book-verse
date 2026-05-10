@@ -13,9 +13,25 @@ import {
   StagedBookStatus,
   UserRole,
 } from "../src/generated/prisma/enums.js";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { closePgPool } from "../src/infra/database/pg";
 import { disconnectPrisma, getPrismaClient } from "../src/infra/database/prisma";
 import { hashPassword } from "../src/shared/utils/password";
+
+const BOOK_IMAGE_DIR = path.join(process.cwd(), "public", "images", "books");
+const BOOK_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"] as const;
+
+function resolveBookCoverImageUrl(slug: string): string | null {
+  for (const extension of BOOK_IMAGE_EXTENSIONS) {
+    const absolutePath = path.join(BOOK_IMAGE_DIR, `${slug}${extension}`);
+    if (existsSync(absolutePath)) {
+      return `/images/books/${slug}${extension}`;
+    }
+  }
+
+  return null;
+}
 
 const authorSeeds = [
   {
@@ -1344,6 +1360,7 @@ async function main() {
       publisherBySlug.get(seed.publisherSlug),
       `publisher ${seed.publisherSlug}`,
     );
+    const coverImageUrl = resolveBookCoverImageUrl(seed.slug);
 
     const book = await prisma.book.upsert({
       where: { slug: seed.slug },
@@ -1352,6 +1369,7 @@ async function main() {
         subtitle: "subtitle" in seed ? (seed.subtitle ?? null) : null,
         shortDescription: seed.shortDescription,
         description: seed.description,
+        coverImageUrl,
         authorId: author.id,
         publisherId: publisher.id,
         publishStatus: seed.publishStatus,
@@ -1378,6 +1396,7 @@ async function main() {
         subtitle: "subtitle" in seed ? (seed.subtitle ?? null) : null,
         shortDescription: seed.shortDescription,
         description: seed.description,
+        coverImageUrl,
         authorId: author.id,
         publisherId: publisher.id,
         publishStatus: seed.publishStatus,
@@ -1706,6 +1725,7 @@ async function main() {
         bookTitle: getOrThrow(bookBySlug.get("mat-biec"), "book mat-biec").title,
         authorName: getOrThrow(authorBySlug.get("nguyen-nhat-anh"), "author nguyen-nhat-anh").name,
         publisherName: getOrThrow(publisherBySlug.get("nxb-tre"), "publisher nxb-tre").name,
+        coverImageUrl: resolveBookCoverImageUrl("mat-biec"),
         quantity: 1,
         unitPriceAmount: 98000,
         compareAtAmount: 115000,
@@ -1727,6 +1747,7 @@ async function main() {
         bookTitle: getOrThrow(bookBySlug.get("mat-biec"), "book mat-biec").title,
         authorName: getOrThrow(authorBySlug.get("nguyen-nhat-anh"), "author nguyen-nhat-anh").name,
         publisherName: getOrThrow(publisherBySlug.get("nxb-tre"), "publisher nxb-tre").name,
+        coverImageUrl: resolveBookCoverImageUrl("mat-biec"),
         quantity: 1,
         unitPriceAmount: 98000,
         compareAtAmount: 115000,
@@ -1750,6 +1771,7 @@ async function main() {
         bookTitle: getOrThrow(bookBySlug.get("atomic-habits"), "book atomic-habits").title,
         authorName: getOrThrow(authorBySlug.get("james-clear"), "author james-clear").name,
         publisherName: getOrThrow(publisherBySlug.get("alphabooks"), "publisher alphabooks").name,
+        coverImageUrl: resolveBookCoverImageUrl("atomic-habits"),
         quantity: 1,
         unitPriceAmount: 172000,
         compareAtAmount: 199000,
@@ -1771,6 +1793,7 @@ async function main() {
         bookTitle: getOrThrow(bookBySlug.get("atomic-habits"), "book atomic-habits").title,
         authorName: getOrThrow(authorBySlug.get("james-clear"), "author james-clear").name,
         publisherName: getOrThrow(publisherBySlug.get("alphabooks"), "publisher alphabooks").name,
+        coverImageUrl: resolveBookCoverImageUrl("atomic-habits"),
         quantity: 1,
         unitPriceAmount: 172000,
         compareAtAmount: 199000,

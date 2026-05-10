@@ -7,6 +7,10 @@ import { AppError } from "../../shared/errors/app-error";
 import { ContentOpsService } from "../content-ops/content-ops.service";
 import {
   parseAdminListQuery,
+  parseAdminOrderCancelPayload,
+  parseAdminOrderNotePayload,
+  parseAdminOrderPaymentPayload,
+  parseAdminOrderStatusPayload,
   parseAuthorPayload,
   parseBookPayload,
   parseBookStatusPayload,
@@ -52,6 +56,10 @@ function requireCatalogManage() {
 
 function requireContentReview() {
   return requireAdminPermission("CONTENT_REVIEW");
+}
+
+function requireOrderManage() {
+  return requireAdminPermission("ORDER_MANAGE");
 }
 
 function requireAdminStorefrontAccess(
@@ -447,6 +455,80 @@ export function createAdminModuleRouter(): Router {
         reviewerUserId: getActorUserId(req),
       });
       res.json(successResponse(record));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/orders", requireOrderManage(), async (req, res, next) => {
+    try {
+      const orders = await adminService.listOrders(parseAdminListQuery(req.query));
+      res.json(successResponse(orders));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/orders/:orderNumber", requireOrderManage(), async (req, res, next) => {
+    try {
+      const order = await adminService.getOrder(getRouteParam(req, "orderNumber"));
+      res.json(successResponse(order));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/orders/:orderNumber/status", requireOrderManage(), async (req, res, next) => {
+    try {
+      const order = await adminService.updateOrderStatus(
+        getRouteParam(req, "orderNumber"),
+        parseAdminOrderStatusPayload(req.body),
+        getActorUserId(req),
+      );
+      res.json(successResponse(order));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/orders/:orderNumber/cancel", requireOrderManage(), async (req, res, next) => {
+    try {
+      const order = await adminService.cancelOrder(
+        getRouteParam(req, "orderNumber"),
+        parseAdminOrderCancelPayload(req.body),
+        getActorUserId(req),
+      );
+      res.json(successResponse(order));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post(
+    "/orders/:orderNumber/bank-transfer/mark-received",
+    requireOrderManage(),
+    async (req, res, next) => {
+      try {
+        const order = await adminService.markBankTransferReceived(
+          getRouteParam(req, "orderNumber"),
+          parseAdminOrderPaymentPayload(req.body),
+          getActorUserId(req),
+        );
+        res.json(successResponse(order));
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.patch("/orders/:orderNumber/internal-note", requireOrderManage(), async (req, res, next) => {
+    try {
+      const order = await adminService.updateOrderInternalNote(
+        getRouteParam(req, "orderNumber"),
+        parseAdminOrderNotePayload(req.body),
+        getActorUserId(req),
+      );
+      res.json(successResponse(order));
     } catch (error) {
       next(error);
     }

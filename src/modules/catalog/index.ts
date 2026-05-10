@@ -171,6 +171,14 @@ export function createCatalogModuleRouter(): Router {
     }
   });
 
+  router.get("/collections", async (_req, res, next) => {
+    try {
+      res.json(successResponse(await catalogService.getCollectionsSummary()));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get("/collections/:slug", async (req, res, next) => {
     try {
       const page = await catalogService.getListingPageData(

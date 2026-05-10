@@ -82,4 +82,26 @@ export class AuthRepository {
       select: USER_SELECT,
     });
   }
+
+  async updateProfile(
+    userId: string,
+    input: {
+      fullName: string;
+      phoneNumber?: string;
+    },
+    db?: DbClient,
+  ): Promise<AuthUserRecord> {
+    const client = await getDb(db);
+
+    return client.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        fullName: input.fullName,
+        phoneNumber: input.phoneNumber ?? null,
+      },
+      select: USER_SELECT,
+    });
+  }
 }

@@ -22,9 +22,9 @@ import type {
 } from "./cart.types";
 
 const AVAILABILITY_LABELS = {
-  [AVAILABILITY_STATUS.IN_STOCK]: "C?n h?ng",
-  [AVAILABILITY_STATUS.LOW_STOCK]: "S?p h?t h?ng",
-  [AVAILABILITY_STATUS.OUT_OF_STOCK]: "T?m h?t h?ng",
+  [AVAILABILITY_STATUS.IN_STOCK]: "Còn hàng",
+  [AVAILABILITY_STATUS.LOW_STOCK]: "Sắp hết hàng",
+  [AVAILABILITY_STATUS.OUT_OF_STOCK]: "Tạm hết hàng",
 } as const;
 
 function toCartLinePricingInput(item: ActiveCartItemRecord): CartLinePricingInput {
@@ -78,9 +78,9 @@ export class CartService {
         const canPurchase = isBookPurchasable(item);
         const warning =
           !canPurchase
-            ? `${item.title} hi?n kh?ng th? mua do h?t h?ng ho?c ng?ng b?n.`
+            ? `${item.title} Hiện không thể mua do hết hàng hoặc ngừng bán.`
             : item.quantity >= item.inventoryQuantity
-              ? `S? l??ng t?i ?a hi?n t?i l? ${item.inventoryQuantity}.`
+              ? `Số lượng tối đa hiện tại là ${item.inventoryQuantity}.`
               : undefined;
 
         return {
@@ -264,7 +264,7 @@ export class CartService {
       throw new AppError({
         statusCode: 500,
         code: "CART_NOT_FOUND_AFTER_SAVE",
-        message: "Kh?ng th? t?i l?i gi? h?ng sau khi l?u.",
+        message: "Không thể tải lại giỏ hàng sau khi lưu.",
       });
     }
 
@@ -383,7 +383,7 @@ export class CartService {
         throw new AppError({
           statusCode: 404,
           code: "BOOK_NOT_FOUND",
-          message: "Kh?ng t?m th?y s?ch h?p l? ?? th?m v?o gi? h?ng.",
+          message: "Không tìm thấy sách hợp lệ để thêm vào giỏ hàng.",
         });
       }
 
@@ -391,7 +391,7 @@ export class CartService {
         throw new AppError({
           statusCode: 409,
           code: "BOOK_UNAVAILABLE",
-          message: "S?ch hi?n kh?ng c?n c? th? mua.",
+          message: "Sách hiện không còn có thể mua.",
         });
       }
 
@@ -472,7 +472,7 @@ export class CartService {
         throw new AppError({
           statusCode: 404,
           code: "CART_ITEM_NOT_FOUND",
-          message: "Kh?ng t?m th?y s?n ph?m c?n c?p nh?t trong gi? h?ng.",
+          message: "Không tìm thấy sản phẩm cần cập nhật trong giỏ hàng.",
         });
       }
 
@@ -535,7 +535,7 @@ export class CartService {
         throw new AppError({
           statusCode: 404,
           code: "CART_ITEM_NOT_FOUND",
-          message: "Kh?ng t?m th?y s?n ph?m c?n x?a trong gi? h?ng.",
+          message: "Không tìm thấy sản phẩm cần xóa trong giỏ hàng.",
         });
       }
 

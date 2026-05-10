@@ -7,6 +7,7 @@ import { AuthRepository, type AuthUserRecord } from "./auth.repository";
 import type {
   AuthMeViewModel,
   AuthUserProfile,
+  ParsedAccountProfileUpdatePayload,
   ParsedLoginPayload,
   ParsedRegisterPayload,
 } from "./auth.types";
@@ -19,7 +20,7 @@ interface PasswordManager {
 interface AuthServiceDependencies {
   authRepository?: Pick<
     AuthRepository,
-    "findUserByEmail" | "createUser" | "updateLastLoginAt" | "findUserById"
+    "findUserByEmail" | "createUser" | "updateLastLoginAt" | "findUserById" | "updateProfile"
   >;
   passwordManager?: PasswordManager;
 }
@@ -89,7 +90,7 @@ export class AuthService {
       throw new AppError({
         statusCode: 409,
         code: "EMAIL_ALREADY_IN_USE",
-        message: "Email nay da duoc su dung.",
+        message: "Email này đã được sử dụng.",
       });
     }
 
@@ -122,7 +123,7 @@ export class AuthService {
       throw new AppError({
         statusCode: 401,
         code: "INVALID_CREDENTIALS",
-        message: "Email hoac mat khau khong dung.",
+        message: "Email hoặc mật khẩu không đúng.",
       });
     }
 
@@ -135,7 +136,7 @@ export class AuthService {
       throw new AppError({
         statusCode: 403,
         code: "ACCOUNT_DISABLED",
-        message: "Tai khoan da bi vo hieu hoa.",
+        message: "Tài khoản đã bị vô hiệu hoá.",
       });
     }
 
@@ -150,7 +151,7 @@ export class AuthService {
       throw new AppError({
         statusCode: 401,
         code: "INVALID_CREDENTIALS",
-        message: "Email hoac mat khau khong dung.",
+        message: "Email hoặc mật khẩu không đúng.",
       });
     }
 
@@ -195,10 +196,38 @@ export class AuthService {
       throw new AppError({
         statusCode: 404,
         code: "USER_NOT_FOUND",
-        message: "Khong tim thay tai khoan nguoi dung.",
+        message: "Không tìm thấy tài khoản người dùng.",
       });
     }
 
     return this.toAuthUserProfile(user);
+  }
+
+  async updateProfile(
+    userId: string,
+    payload: ParsedAccountProfileUpdatePayload,
+  ): Promise<AuthUserProfile> {
+    const existingUser = await this.authRepository.findUserById(userId);
+
+    if (!existingUser || !existingUser.isActive) {
+      throw new AppError({
+        statusCode: 404,
+        code: "USER_NOT_FOUND",
+        message: "Khong tim thay tai khoan nguoi dung.",
+      });
+    }
+
+    const updatedUser = await this.authRepository.updateProfile(userId, {
+      fullName: this.normalizeDisplayName(payload.fullName),
+      phoneNumber: this.normalizeOptionalPhoneNumber(payload.phoneNumber),
+    });
+
+    logger.info("User profile updated successfully", {
+      module: "auth",
+      userId: updatedUser.id,
+      email: updatedUser.email,
+    });
+
+    return this.toAuthUserProfile(updatedUser);
   }
 }

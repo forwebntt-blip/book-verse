@@ -7,7 +7,7 @@ const root = process.cwd();
 const fixedTargets = [
   "dist",
   "coverage",
-  "public",
+  "dist-client",
   "checkout-debug.log",
   "dev-server-3100.err.log",
   "dev-server-3100.log",

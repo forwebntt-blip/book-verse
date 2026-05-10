@@ -1,7 +1,10 @@
-import { AdminPermission, PublishStatus } from "../../generated/prisma/enums.js";
+import { AdminPermission, PaymentStatus as PrismaPaymentStatus, PublishStatus } from "../../generated/prisma/enums.js";
 import {
   ADMIN_PERMISSIONS,
   AVAILABILITY_STATUS,
+  ORDER_STATUS,
+  PAYMENT_METHOD,
+  PAYMENT_STATUS,
   PUBLISH_STATUS,
 } from "../../shared/contracts";
 import { withDbTransaction } from "../../shared/database/repository";
@@ -13,11 +16,18 @@ import {
   type AdminBookRecord,
   type AdminCategoryRecord,
   type AdminCollectionRecord,
+  type AdminOrderRecord,
   type AdminPublisherRecord,
 } from "./admin.repository";
+import { CheckoutService } from "../checkout/checkout.service";
 import type {
   AdminCatalogPageModel,
   AdminDashboardPageModel,
+  AdminOrderViewModel,
+  ParsedAdminOrderCancelPayload,
+  ParsedAdminOrderNotePayload,
+  ParsedAdminOrderPaymentPayload,
+  ParsedAdminOrderStatusPayload,
   ParsedAdminListQuery,
   ParsedAuthorPayload,
   ParsedBookPayload,
@@ -78,6 +88,7 @@ interface AdminServiceDependencies {
     | "findCategoryBySlug"
     | "findCollectionById"
     | "findCollectionBySlug"
+    | "findOrderByOrderNumber"
     | "findPublisherById"
     | "findPublisherBySlug"
     | "listAuthors"
@@ -85,6 +96,7 @@ interface AdminServiceDependencies {
     | "listCategories"
     | "listCollections"
     | "listImportJobs"
+    | "listOrders"
     | "listPublishers"
     | "listStagedBooks"
     | "replaceBookCategories"
@@ -93,18 +105,36 @@ interface AdminServiceDependencies {
     | "updateBook"
     | "updateCategory"
     | "updateCollection"
+    | "updateLatestPaymentRecordForOrder"
+    | "updateOrder"
     | "updatePublisher"
   >;
   runInTransaction?: typeof withDbTransaction;
+  checkoutService?: Pick<
+    CheckoutService,
+    "cancelOrder" | "markBankTransferReceived"
+  >;
 }
+
+const ORDER_STATUS_TRANSITIONS = {
+  [ORDER_STATUS.PLACED]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.AWAITING_TRANSFER]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.PACKED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.PACKED]: [ORDER_STATUS.SHIPPED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.SHIPPED]: [ORDER_STATUS.DELIVERED],
+  [ORDER_STATUS.DELIVERED]: [],
+  [ORDER_STATUS.CANCELLED]: [],
+} as const;
 
 export class AdminService {
   private readonly repository: NonNullable<AdminServiceDependencies["repository"]>;
   private readonly runInTransaction: NonNullable<AdminServiceDependencies["runInTransaction"]>;
+  private readonly checkoutService: NonNullable<AdminServiceDependencies["checkoutService"]>;
 
   constructor(dependencies: AdminServiceDependencies = {}) {
     this.repository = dependencies.repository ?? new AdminRepository();
     this.runInTransaction = dependencies.runInTransaction ?? withDbTransaction;
+    this.checkoutService = dependencies.checkoutService ?? new CheckoutService();
   }
 
   private ensureUniqueSlug(
@@ -122,7 +152,7 @@ export class AdminService {
       throw new AppError({
         statusCode: 409,
         code: `${entity.toUpperCase()}_SLUG_CONFLICT`,
-        message: `Slug da ton tai cho ${entity}.`,
+        message: `Slug đã tồn tại cho ${entity}.`,
       });
     }
   }
@@ -135,7 +165,7 @@ export class AdminService {
       throw new AppError({
         statusCode: 400,
         code: "INVALID_ADMIN_PAYLOAD",
-        message: "compareAtAmount khong duoc nho hon priceAmount.",
+        message: "compareAtAmount không được nhỏ hơn priceAmount.",
       });
     }
 
@@ -146,8 +176,116 @@ export class AdminService {
       throw new AppError({
         statusCode: 409,
         code: "BOOK_CATEGORY_REQUIRED",
-        message: "Sach can co it nhat mot category truoc khi publish.",
+        message: "Sach cần có một category trước khi publish.",
       });
+    }
+  }
+
+  private mapOrderRecord(record: AdminOrderRecord): AdminOrderViewModel {
+    return {
+      id: record.id,
+      orderNumber: record.orderNumber,
+      status: record.status,
+      paymentStatus: record.paymentStatus,
+      paymentMethod: record.paymentMethod,
+      itemCount: record.itemCount,
+      totalAmount: record.totalAmount,
+      customerFullName: record.customerFullName,
+      customerPhoneNumber: record.customerPhoneNumber,
+      customerEmail: record.customerEmail,
+      internalNote: record.internalNote,
+      cancellationReason: record.cancellationReason,
+      placedAt: record.placedAt.toISOString(),
+      confirmedAt: record.confirmedAt?.toISOString(),
+      packedAt: record.packedAt?.toISOString(),
+      shippedAt: record.shippedAt?.toISOString(),
+      deliveredAt: record.deliveredAt?.toISOString(),
+      cancelledAt: record.cancelledAt?.toISOString(),
+      address: record.address
+        ? {
+            recipientName: record.address.recipientName,
+            phoneNumber: record.address.phoneNumber,
+            addressLine1: record.address.addressLine1,
+            ward: record.address.ward,
+            district: record.address.district,
+            province: record.address.province,
+            note: record.address.note,
+          }
+        : null,
+      items: record.items.map((item) => ({
+        id: item.id,
+        bookSlug: item.bookSlug,
+        bookTitle: item.bookTitle,
+        authorName: item.authorName,
+        publisherName: item.publisherName,
+        quantity: item.quantity,
+        unitPriceAmount: item.unitPriceAmount,
+        lineSubtotalAmount: item.lineSubtotalAmount,
+      })),
+      payments: record.paymentRecords.map((payment) => ({
+        id: payment.id,
+        status: payment.status,
+        method: payment.method,
+        amount: payment.amount,
+        attemptNumber: payment.attemptNumber,
+        externalReference: payment.externalReference,
+        proofUrl: payment.proofUrl,
+        note: payment.note,
+        paidAt: payment.paidAt?.toISOString(),
+        verifiedAt: payment.verifiedAt?.toISOString(),
+        failedAt: payment.failedAt?.toISOString(),
+      })),
+    };
+  }
+
+  private ensureValidOrderStatusTransition(currentStatus: AdminOrderRecord["status"], nextStatus: ParsedAdminOrderStatusPayload["status"]): void {
+    if (currentStatus === nextStatus) {
+      return;
+    }
+
+    const allowed = ORDER_STATUS_TRANSITIONS[currentStatus] as readonly string[];
+    if (!allowed.includes(nextStatus)) {
+      throw new AppError({
+        statusCode: 409,
+        code: "INVALID_ORDER_TRANSITION",
+        message: `Khong the chuyen order tu ${currentStatus} sang ${nextStatus}.`,
+      });
+    }
+  }
+
+  private buildOrderStatusUpdateData(status: ParsedAdminOrderStatusPayload["status"]) {
+    const now = new Date();
+
+    switch (status) {
+      case ORDER_STATUS.CONFIRMED:
+        return {
+          status,
+          confirmedAt: now,
+        };
+      case ORDER_STATUS.PACKED:
+        return {
+          status,
+          packedAt: now,
+        };
+      case ORDER_STATUS.SHIPPED:
+        return {
+          status,
+          shippedAt: now,
+        };
+      case ORDER_STATUS.DELIVERED:
+        return {
+          status,
+          deliveredAt: now,
+        };
+      case ORDER_STATUS.CANCELLED:
+        return {
+          status,
+          cancelledAt: now,
+        };
+      default:
+        return {
+          status,
+        };
     }
   }
 
@@ -193,11 +331,6 @@ export class AdminService {
           label: "Quản lý danh mục",
           href: "/admin/catalog",
           note: "Tạo sách thủ công, sửa metadata, cập nhật trạng thái và quản lý bộ sưu tập.",
-        },
-        {
-          label: "Vận hành nội dung",
-          href: "/admin/content-ops",
-          note: "Nhập dữ liệu thu thập vào vùng chờ, chuẩn hóa, duyệt, từ chối và xuất bản.",
         },
       ],
       recentImports: jobs.slice(0, 5).map((job) => ({
@@ -401,6 +534,183 @@ export class AdminService {
     };
   }
 
+  async listOrders(query: ParsedAdminListQuery): Promise<AdminOrderViewModel[]> {
+    const orders = await this.repository.listOrders({
+      q: query.q,
+      orderStatus: query.orderStatus,
+      paymentStatus: query.paymentStatus,
+    });
+
+    return orders.map((order) => this.mapOrderRecord(order));
+  }
+
+  async getOrder(orderNumber: string): Promise<AdminOrderViewModel> {
+    const order = await this.repository.findOrderByOrderNumber(orderNumber);
+
+    if (!order) {
+      throw new AppError({
+        statusCode: 404,
+        code: "ORDER_NOT_FOUND",
+        message: "Khong tim thay don hang.",
+      });
+    }
+
+    return this.mapOrderRecord(order);
+  }
+
+  async updateOrderStatus(
+    orderNumber: string,
+    payload: ParsedAdminOrderStatusPayload,
+    actorUserId: string,
+  ): Promise<AdminOrderViewModel> {
+    const order = await this.repository.findOrderByOrderNumber(orderNumber);
+
+    if (!order) {
+      throw new AppError({
+        statusCode: 404,
+        code: "ORDER_NOT_FOUND",
+        message: "Khong tim thay don hang can cap nhat.",
+      });
+    }
+
+    this.ensureValidOrderStatusTransition(order.status, payload.status);
+
+    if (
+      payload.status === ORDER_STATUS.CONFIRMED &&
+      order.paymentMethod === PAYMENT_METHOD.BANK_TRANSFER &&
+      order.paymentStatus !== PAYMENT_STATUS.PAID
+    ) {
+      throw new AppError({
+        statusCode: 409,
+        code: "ORDER_PAYMENT_NOT_CONFIRMED",
+        message: "Don chuyen khoan phai duoc xac nhan thanh toan truoc khi chuyen sang CONFIRMED.",
+      });
+    }
+
+    const updated = await this.repository.updateOrder(
+      orderNumber,
+      this.buildOrderStatusUpdateData(payload.status),
+    );
+
+    this.logAdminAction("update_order_status", {
+      actorUserId,
+      orderNumber,
+      fromStatus: order.status,
+      toStatus: payload.status,
+    });
+
+    return this.mapOrderRecord(updated);
+  }
+
+  async cancelOrder(
+    orderNumber: string,
+    payload: ParsedAdminOrderCancelPayload,
+    actorUserId: string,
+  ): Promise<AdminOrderViewModel> {
+    const updated = await this.checkoutService.cancelOrder({
+      orderNumber,
+      reason: payload.reason,
+      requestContext: {
+        requestId: `admin-cancel:${orderNumber}:${Date.now()}`,
+        userId: actorUserId,
+      },
+    });
+
+    this.logAdminAction("cancel_order", {
+      actorUserId,
+      orderNumber,
+      reason: payload.reason ?? null,
+    });
+
+    const order = await this.repository.findOrderByOrderNumber(updated.orderNumber);
+    if (!order) {
+      throw new AppError({
+        statusCode: 404,
+        code: "ORDER_NOT_FOUND",
+        message: "Khong tim thay don hang sau khi huy.",
+      });
+    }
+
+    return this.mapOrderRecord(order);
+  }
+
+  async markBankTransferReceived(
+    orderNumber: string,
+    payload: ParsedAdminOrderPaymentPayload,
+    actorUserId: string,
+  ): Promise<AdminOrderViewModel> {
+    if (payload.proofUrl) {
+      const orderBeforeUpdate = await this.repository.findOrderByOrderNumber(orderNumber);
+      if (!orderBeforeUpdate) {
+        throw new AppError({
+          statusCode: 404,
+          code: "ORDER_NOT_FOUND",
+          message: "Khong tim thay don hang can xac nhan chuyen khoan.",
+        });
+      }
+
+      await this.repository.updateLatestPaymentRecordForOrder(orderBeforeUpdate.id, {
+        proofUrl: payload.proofUrl,
+      });
+    }
+
+    const updated = await this.checkoutService.markBankTransferReceived({
+      orderNumber,
+      externalReference: payload.externalReference,
+      note: payload.note,
+      requestContext: {
+        requestId: `admin-payment:${orderNumber}:${Date.now()}`,
+        userId: actorUserId,
+      },
+    });
+
+    this.logAdminAction("mark_order_transfer_received", {
+      actorUserId,
+      orderNumber,
+      externalReference: payload.externalReference ?? null,
+      proofUrl: payload.proofUrl ?? null,
+    });
+
+    const order = await this.repository.findOrderByOrderNumber(updated.orderNumber);
+    if (!order) {
+      throw new AppError({
+        statusCode: 404,
+        code: "ORDER_NOT_FOUND",
+        message: "Khong tim thay don hang sau khi xac nhan thanh toan.",
+      });
+    }
+
+    return this.mapOrderRecord(order);
+  }
+
+  async updateOrderInternalNote(
+    orderNumber: string,
+    payload: ParsedAdminOrderNotePayload,
+    actorUserId: string,
+  ): Promise<AdminOrderViewModel> {
+    const order = await this.repository.findOrderByOrderNumber(orderNumber);
+
+    if (!order) {
+      throw new AppError({
+        statusCode: 404,
+        code: "ORDER_NOT_FOUND",
+        message: "Khong tim thay don hang can cap nhat ghi chu.",
+      });
+    }
+
+    const updated = await this.repository.updateOrder(orderNumber, {
+      internalNote: payload.internalNote ?? null,
+    });
+
+    this.logAdminAction("update_order_internal_note", {
+      actorUserId,
+      orderNumber,
+      hasNote: Boolean(payload.internalNote),
+    });
+
+    return this.mapOrderRecord(updated);
+  }
+
   private logAdminAction(action: string, metadata: Record<string, unknown>) {
     logger.info(`Admin action: ${action}`, {
       module: "admin",
@@ -418,7 +728,7 @@ export class AdminService {
       throw new AppError({
         statusCode: 409,
         code: `${entity.toUpperCase()}_DELETE_BLOCKED`,
-        message: `${entity} dang duoc tham chieu boi du lieu khac nen khong the xoa.`,
+        message: `${entity} đang được tham chiếu bởi dữ liệu khác nên không thể xoá.`,
       });
     }
 
@@ -531,7 +841,7 @@ export class AdminService {
           throw new AppError({
             statusCode: 409,
             code: "BOOK_ISBN_CONFLICT",
-            message: "ISBN da ton tai trong catalog.",
+            message: "ISBN đã tồn tại trong catalog.",
           });
         }
       }
@@ -579,7 +889,7 @@ export class AdminService {
         throw new AppError({
           statusCode: 500,
           code: "BOOK_CREATE_FAILED",
-          message: "Khong tai nap duoc sach sau khi tao.",
+          message: "Không tải nạp được sách sau khi tạo.",
           expose: false,
         });
       }
@@ -606,7 +916,7 @@ export class AdminService {
           throw new AppError({
             statusCode: 409,
             code: "BOOK_ISBN_CONFLICT",
-            message: "ISBN da ton tai trong catalog.",
+            message: "ISBN đã tồn tại trong catalog.",
           });
         }
       }
@@ -655,7 +965,7 @@ export class AdminService {
         throw new AppError({
           statusCode: 500,
           code: "BOOK_UPDATE_FAILED",
-          message: "Khong tai nap duoc sach sau khi cap nhat.",
+          message: "Không tải nạp được sách sau khi cập nhật.",
           expose: false,
         });
       }
@@ -728,7 +1038,7 @@ export class AdminService {
         throw new AppError({
           statusCode: 500,
           code: "COLLECTION_CREATE_FAILED",
-          message: "Khong tai nap duoc collection sau khi tao.",
+          message: "Không tải nạp được collection sau khi tạo.",
           expose: false,
         });
       }
@@ -773,7 +1083,7 @@ export class AdminService {
         throw new AppError({
           statusCode: 500,
           code: "COLLECTION_UPDATE_FAILED",
-          message: "Khong tai nap duoc collection sau khi cap nhat.",
+          message: "Không tải nạp được collection sau khi cập nhật.",
           expose: false,
         });
       }

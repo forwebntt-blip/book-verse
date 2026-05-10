@@ -13,6 +13,7 @@ import type {
   CatalogSectionViewModel,
   CatalogSort,
   CategorySummaryViewModel,
+  CollectionSummaryViewModel,
   HomePageModel,
   ListingPageModel,
   PageAnalyticsViewModel,
@@ -25,21 +26,21 @@ import type {
 } from "./catalog.types";
 import { CATALOG_SORTS } from "./catalog.types";
 
-const LISTING_PAGE_SIZE = 8;
+const LISTING_PAGE_SIZE = 15;
 const HOMEPAGE_SECTION_LIMIT = 4;
 
 const SORT_OPTIONS: Array<{ value: CatalogSort; label: string }> = [
-  { value: CATALOG_SORTS.FEATURED, label: "N\u1ed5i b\u1eadt" },
-  { value: CATALOG_SORTS.BESTSELLER, label: "B\u00e1n ch\u1ea1y" },
-  { value: CATALOG_SORTS.NEWEST, label: "M\u1edbi nh\u1ea5t" },
-  { value: CATALOG_SORTS.PRICE_ASC, label: "Gi\u00e1 t\u0103ng d\u1ea7n" },
-  { value: CATALOG_SORTS.PRICE_DESC, label: "Gi\u00e1 gi\u1ea3m d\u1ea7n" },
+  { value: CATALOG_SORTS.FEATURED, label: "Nổi bật" },
+  { value: CATALOG_SORTS.BESTSELLER, label: "Bán chạy" },
+  { value: CATALOG_SORTS.NEWEST, label: "Mua nhiều" },
+  { value: CATALOG_SORTS.PRICE_ASC, label: "Giá tăng dần" },
+  { value: CATALOG_SORTS.PRICE_DESC, label: "Giá giảm dần" },
 ];
 
 const AVAILABILITY_LABELS: Record<AvailabilityStatus, string> = {
-  [AVAILABILITY_STATUS.IN_STOCK]: "C\u00f2n h\u00e0ng",
-  [AVAILABILITY_STATUS.LOW_STOCK]: "S\u1eafp h\u1ebft h\u00e0ng",
-  [AVAILABILITY_STATUS.OUT_OF_STOCK]: "T\u1ea1m h\u1ebft h\u00e0ng",
+  [AVAILABILITY_STATUS.IN_STOCK]: "Còn hàng",
+  [AVAILABILITY_STATUS.LOW_STOCK]: "Sắp hết hàng",
+  [AVAILABILITY_STATUS.OUT_OF_STOCK]: "Tạm hết hàng",
 };
 
 function formatDate(value: Date): string {
@@ -346,7 +347,7 @@ export class CatalogService {
           take: HOMEPAGE_SECTION_LIMIT,
         }),
         this.repository.findCategories(3),
-        this.repository.findCollections(3),
+        this.repository.findCollections(),
         this.repository.countBooks(buildBaseScopeWhere({ type: "all" })),
       ]);
 
@@ -400,7 +401,10 @@ export class CatalogService {
     const collectionSections = (
       await Promise.all(
         collections
-          .filter((collection) => collection.publishStatus === PublishStatus.PUBLISHED)
+          .filter(
+            (collection) =>
+              collection.publishStatus === PublishStatus.PUBLISHED && collection.isFeatured,
+          )
           .map(async (collection) => {
             const [count, books] = await Promise.all([
               this.repository.countBooks({
@@ -446,27 +450,27 @@ export class CatalogService {
     const spotlightBook = featuredBooks[0] ?? bestsellerBooks[0];
 
     return {
-      title: "Hi\u1ec7u s\u00e1ch tr\u1ef1c tuy\u1ebfn \u0111\u00e3 s\u1eb5n s\u00e0ng",
+      title: "Hiệu sách trức tuyến đã sẵn sàng",
       description:
-        "Kh\u00e1m ph\u00e1 trang ch\u1ee7 s\u00e1ch, s\u00e1ch n\u1ed5i b\u1eadt, s\u00e1ch b\u00e1n ch\u1ea1y, danh m\u1ee5c v\u00e0 b\u1ed9 s\u01b0u t\u1eadp trong Bookverse.",
+        "Khám phá trang chủ sách, sách nổi bật, sách bán chạy, danh mục và bộ sưu tập trong Bookverse.",
       banner: {
-        title: "Kh\u00e1m ph\u00e1 danh m\u1ee5c s\u00e1ch \u0111\u01b0\u1ee3c s\u1eafp x\u1ebfp r\u00f5 r\u00e0ng ngay t\u1eeb trang \u0111\u1ea7u",
+        title: "Khám phá danh mục sách được sắp xếp rõ ràng ngay từ trang đầu",
         lead:
-          "Gi\u00e1, ph\u00ed giao h\u00e0ng, t\u00ecnh tr\u1ea1ng c\u00f2n h\u00e0ng v\u00e0 \u0111\u01b0\u1eddng d\u1eabn t\u1edbi danh m\u1ee5c, b\u1ed9 s\u01b0u t\u1eadp, trang chi ti\u1ebft \u0111\u1ec1u \u0111\u01b0\u1ee3c hi\u1ec3n th\u1ecb s\u1edbm v\u00e0 r\u00f5 r\u00e0ng.",
+          "Các thông tin quan trọng như giá bán, phí giao hàng, tình trạng còn hàng và các đường dẫn đến danh mục, bộ sưu tập hoặc trang chi tiết sản phẩm đều được hiển thị dễ thấy và dễ hiểu ngay từ đầu.",
         primaryCta: {
-          label: "Xem to\u00e0n b\u1ed9 danh m\u1ee5c",
+          label: "Xem toàn bộ danh mục",
           href: "/books",
         },
         secondaryCta: {
-          label: "\u0110i \u0111\u1ebfn b\u1ed9 s\u01b0u t\u1eadp",
+          label: "Đi đến bộ sưu tập",
           href: "/#collections",
         },
       },
       spotlightBook,
       stats: [
-        { label: "T\u1ef1a s\u00e1ch hi\u1ec3n th\u1ecb", value: String(totalBooks) },
-        { label: "Danh m\u1ee5c c\u00f3 d\u1eef li\u1ec7u", value: String(categorySections.length) },
-        { label: "B\u1ed9 s\u01b0u t\u1eadp s\u1eb5n s\u00e0ng", value: String(collectionSections.length) },
+        { label: "Tựa sách hiển thị", value: String(totalBooks) },
+        { label: "Danh mục có dữ liệu", value: String(categorySections.length) },
+        { label: "Bộ sưu tập sẵn sàng", value: String(collectionSections.length) },
       ],
       featuredBooks,
       bestsellerBooks,
@@ -521,6 +525,56 @@ export class CatalogService {
     return summaries.filter((item): item is CategorySummaryViewModel => Boolean(item));
   }
 
+  async getCollectionsSummary(): Promise<CollectionSummaryViewModel[]> {
+    const collections = await this.repository.findCollections();
+
+    const summaries = await Promise.all(
+      collections
+        .filter((collection) => collection.publishStatus === PublishStatus.PUBLISHED)
+        .map(async (collection) => {
+          const [count, books] = await Promise.all([
+            this.repository.countBooks({
+              publishStatus: PublishStatus.PUBLISHED,
+              collectionItems: {
+                some: {
+                  collectionId: collection.id,
+                },
+              },
+            }),
+            this.repository.findBooks({
+              where: {
+                publishStatus: PublishStatus.PUBLISHED,
+                collectionItems: {
+                  some: {
+                    collectionId: collection.id,
+                  },
+                },
+              },
+              orderBy: [{ sortWeight: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+              take: 4,
+            }),
+          ]);
+
+          if (count === 0) {
+            return null;
+          }
+
+          return {
+            slug: collection.slug,
+            name: collection.name,
+            description: collection.description,
+            href: `/collections/${collection.slug}`,
+            count,
+            coverImageUrl: collection.coverImageUrl,
+            isFeatured: collection.isFeatured,
+            books: books.map((book) => mapProductCard(book, `collections_overview:${collection.slug}`)),
+          } satisfies CollectionSummaryViewModel;
+        }),
+    );
+
+    return summaries.filter((item): item is CollectionSummaryViewModel => Boolean(item));
+  }
+
   async getListingPageData(scope: CatalogScope, query: ParsedCatalogQuery): Promise<ListingPageModel> {
     let scopedLabel: string | undefined;
     let scopedDescription: string | null | undefined;
@@ -532,7 +586,7 @@ export class CatalogService {
         throw new AppError({
           statusCode: 404,
           code: "CATEGORY_NOT_FOUND",
-          message: "Kh?ng t?m th?y danh m?c y?u c?u.",
+          message: "Không tìm thấy danh mục yêu cầu.",
         });
       }
 
@@ -547,7 +601,7 @@ export class CatalogService {
         throw new AppError({
           statusCode: 404,
           code: "COLLECTION_NOT_FOUND",
-          message: "Kh?ng t?m th?y b? s?u t?p y?u c?u.",
+          message: "Không tìm thấy bộ sưu tập yêu cầu.",
         });
       }
 
@@ -690,7 +744,7 @@ export class CatalogService {
         filters.categoryOptions.find((item) => item.value === query.categorySlug)?.label ??
         query.categorySlug;
       activeFilters.push({
-        label: `Danh m?c: ${categoryLabel}`,
+        label: `Danh mục: ${categoryLabel}`,
         clearHref: buildCatalogHref(basePath, normalizedQuery, {
           categorySlug: undefined,
           page: 1,
@@ -703,7 +757,7 @@ export class CatalogService {
         filters.authorOptions.find((item) => item.value === query.authorSlug)?.label ??
         query.authorSlug;
       activeFilters.push({
-        label: `T?c gi?: ${authorLabel}`,
+        label: `Tác giả: ${authorLabel}`,
         clearHref: buildCatalogHref(basePath, normalizedQuery, {
           authorSlug: undefined,
           page: 1,
@@ -726,7 +780,7 @@ export class CatalogService {
 
     if (query.availability) {
       activeFilters.push({
-        label: `T?nh tr?ng: ${AVAILABILITY_LABELS[query.availability]}`,
+        label: `Tình trạng: ${AVAILABILITY_LABELS[query.availability]}`,
         clearHref: buildCatalogHref(basePath, normalizedQuery, {
           availability: undefined,
           page: 1,
@@ -834,7 +888,7 @@ export class CatalogService {
       throw new AppError({
         statusCode: 404,
         code: "BOOK_NOT_FOUND",
-        message: "Kh?ng t?m th?y s?ch y?u c?u.",
+        message: "Không tìm thấy sách yêu cầu.",
       });
     }
 
@@ -897,37 +951,37 @@ export class CatalogService {
     const card = mapProductCard(book, "product_detail");
     const metadataItems: ProductMetadataItemViewModel[] = [
       {
-        label: "T\u00e1c gi\u1ea3",
+        label: "Tác giả",
         value: book.author.name,
         href: `/books?author=${book.author.slug}`,
       },
       {
-        label: "Nh\u00e0 xu\u1ea5t b\u1ea3n",
+        label: "Nhà xuất bản",
         value: book.publisher.name,
         href: `/books?publisher=${book.publisher.slug}`,
       },
       {
-        label: "Danh m\u1ee5c",
+        label: "Danh mục",
         value:
           book.bookCategories.length > 0
             ? book.bookCategories.map((item) => item.category.name).join(", ")
-            : "\u0110ang c\u1eadp nh\u1eadt",
+            : "Đang cập nhật",
       },
       {
-        label: "Ng\u00f4n ng\u1eef",
-        value: book.languageCode ? book.languageCode.toUpperCase() : "\u0110ang c\u1eadp nh\u1eadt",
+        label: "Ngôn ngữ",
+        value: book.languageCode ? book.languageCode.toUpperCase() : "Đang cập nhật",
       },
       {
-        label: "S\u1ed1 trang",
-        value: typeof book.pageCount === "number" ? `${book.pageCount} trang` : "\u0110ang c\u1eadp nh\u1eadt",
+        label: "Số trang",
+        value: typeof book.pageCount === "number" ? `${book.pageCount} trang` : "Đang cập nhật",
       },
       {
         label: "ISBN",
-        value: book.isbn ?? "\u0110ang c\u1eadp nh\u1eadt",
+        value: book.isbn ?? "Đang cập nhật",
       },
       {
-        label: "Ph\u00e1t h\u00e0nh",
-        value: book.publishedAt ? formatDate(book.publishedAt) : "\u0110ang c\u1eadp nh\u1eadt",
+        label: "Phát hành",
+        value: book.publishedAt ? formatDate(book.publishedAt) : "Đang cập nhật",
       },
     ];
 
@@ -936,16 +990,16 @@ export class CatalogService {
       description:
         book.shortDescription ??
         book.description ??
-        `Chi ti\u1ebft s\u00e1ch ${book.title} v\u1edbi gi\u00e1, ph\u00ed giao h\u00e0ng v\u00e0 th\u00f4ng tin s\u00e1ch.`,
+        `Chi tiết sách ${book.title} với giá, phí giao hàng và thông tin sách`,
       breadcrumb: [
-        { label: "Trang ch\u1ee7", href: "/" },
+        { label: "Trang chủ", href: "/" },
         primaryCategory
           ? {
               label: primaryCategory.name,
               href: `/categories/${primaryCategory.slug}`,
             }
           : {
-              label: "Danh m\u1ee5c s\u00e1ch",
+              label: "Danh mục sách",
               href: "/books",
             },
         { label: book.title, active: true },
@@ -956,7 +1010,7 @@ export class CatalogService {
         longDescription:
           book.description ??
           book.shortDescription ??
-          "N\u1ed9i dung m\u00f4 t\u1ea3 chi ti\u1ebft cho t\u1ef1a s\u00e1ch n\u00e0y \u0111ang \u0111\u01b0\u1ee3c c\u1eadp nh\u1eadt th\u00eam t\u1eeb d\u1eef li\u1ec7u danh m\u1ee5c.",
+          "Nội dung mô tả chi tiết cho tựa sách này đang được cập nhật thêm từ dữ liệu danh mục.",
         pageCount: book.pageCount,
         languageCode: book.languageCode,
         isbn: book.isbn,
@@ -970,8 +1024,8 @@ export class CatalogService {
         metadataItems,
         purchaseNote:
           book.availabilityStatus === AVAILABILITY_STATUS.OUT_OF_STOCK
-            ? "S\u00e1ch t\u1ea1m h\u1ebft h\u00e0ng. N\u00fat mua v\u1eabn \u0111\u01b0\u1ee3c gi\u1eef tr\u00ean giao di\u1ec7n nh\u01b0ng ch\u01b0a m\u1edf lu\u1ed3ng mua h\u00e0ng."
-            : "N\u00fat mua \u0111\u00e3 s\u1eb5n s\u00e0ng tr\u00ean giao di\u1ec7n v\u00e0 \u0111\u01b0\u1ee3c k\u1ebft n\u1ed1i v\u1edbi gi\u1ecf h\u00e0ng, trang thanh to\u00e1n trong lu\u1ed3ng mua s\u00e1ch.",
+            ? "Cuốn sách hiện đang hết hàng tạm thời. Nút “Mua” vẫn xuất hiện trên giao diện, nhưng người dùng chưa thể thực hiện quy trình mua hàng."
+            : "Nút “Mua” đã hoạt động đầy đủ trên giao diện và được liên kết với các bước mua hàng như giỏ hàng và trang thanh toán.",
         isPurchasable: book.availabilityStatus !== AVAILABILITY_STATUS.OUT_OF_STOCK,
       },
       relatedBooks,

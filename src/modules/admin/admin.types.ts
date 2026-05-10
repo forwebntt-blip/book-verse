@@ -1,6 +1,9 @@
 import type {
   AvailabilityStatus,
   ContentImportJobStatus,
+  OrderStatus,
+  PaymentMethodCode,
+  PaymentStatus,
   PublishStatus,
   StagedBookStatus,
 } from "../../shared/contracts";
@@ -18,6 +21,8 @@ export interface ParsedAdminListQuery {
   publishStatus?: PublishStatus;
   availabilityStatus?: AvailabilityStatus;
   stagedStatus?: StagedBookStatus;
+  orderStatus?: OrderStatus;
+  paymentStatus?: PaymentStatus;
 }
 
 export interface ParsedAuthorPayload {
@@ -266,4 +271,79 @@ export interface AdminContentOpsPageModel {
     normalizedSlug?: string | null;
     rejectReason?: string | null;
   }>;
+}
+
+export interface ParsedAdminOrderStatusPayload {
+  status: OrderStatus;
+}
+
+export interface ParsedAdminOrderCancelPayload {
+  reason?: string;
+}
+
+export interface ParsedAdminOrderPaymentPayload {
+  externalReference?: string;
+  note?: string;
+  proofUrl?: string;
+}
+
+export interface ParsedAdminOrderNotePayload {
+  internalNote?: string;
+}
+
+export interface AdminOrderPaymentRecordViewModel {
+  id: string;
+  status: PaymentStatus;
+  method: PaymentMethodCode;
+  amount: number;
+  attemptNumber: number;
+  externalReference?: string | null;
+  proofUrl?: string | null;
+  note?: string | null;
+  paidAt?: string | null;
+  verifiedAt?: string | null;
+  failedAt?: string | null;
+}
+
+export interface AdminOrderItemViewModel {
+  id: string;
+  bookSlug: string;
+  bookTitle: string;
+  authorName: string;
+  publisherName: string;
+  quantity: number;
+  unitPriceAmount: number;
+  lineSubtotalAmount: number;
+}
+
+export interface AdminOrderViewModel {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethodCode;
+  itemCount: number;
+  totalAmount: number;
+  customerFullName: string;
+  customerPhoneNumber: string;
+  customerEmail?: string | null;
+  internalNote?: string | null;
+  cancellationReason?: string | null;
+  placedAt: string;
+  confirmedAt?: string | null;
+  packedAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  cancelledAt?: string | null;
+  address?: {
+    recipientName: string;
+    phoneNumber: string;
+    addressLine1: string;
+    ward?: string | null;
+    district: string;
+    province: string;
+    note?: string | null;
+  } | null;
+  items: AdminOrderItemViewModel[];
+  payments: AdminOrderPaymentRecordViewModel[];
 }

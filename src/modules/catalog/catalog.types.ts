@@ -219,3 +219,14 @@ export interface CategorySummaryViewModel {
   bookCount: number;
   href: string;
 }
+
+export interface CollectionSummaryViewModel {
+  slug: string;
+  name: string;
+  description: string | null;
+  href: string;
+  count: number;
+  coverImageUrl: string | null;
+  isFeatured: boolean;
+  books: ProductCardViewModel[];
+}

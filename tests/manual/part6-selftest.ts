@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { env } from "../../src/config/env";
 import { disconnectPrisma, getPrismaClient } from "../../src/infra/database/prisma";
 
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 
 interface HttpSession {
   cookie: string;
@@ -90,24 +90,6 @@ async function fetchText(
   return { response, text };
 }
 
-function extractMetaCsrf(html: string): string {
-  const match = html.match(/meta name="csrf-token" content="([^"]+)"/);
-  if (!match) {
-    throw new Error("Could not extract csrf token from page HTML.");
-  }
-
-  return match[1];
-}
-
-function extractHiddenValue(html: string, name: string): string {
-  const match = html.match(new RegExp(`name="${name}" value="([^"]*)"`, "i"));
-  if (!match) {
-    throw new Error(`Could not extract hidden input ${name}.`);
-  }
-
-  return match[1];
-}
-
 async function bootstrapSession(
   session: HttpSession,
   auth?: { userId: string; role: string; permissions?: string[] },
@@ -183,18 +165,35 @@ async function runCheckoutFlow(params: {
   const sessionId = await bootstrapSession(session, params.auth);
   const cartId = await addBookToCart(session, "mat-biec", 1);
 
-  let html = (await fetchText(session, "/checkout")).text;
-  let checkoutAttemptId = extractHiddenValue(html, "checkoutAttemptId");
-  let csrfToken = extractMetaCsrf(html);
+  const csrf = await fetchJson<{ data: { csrfToken: string } }>(session, "/csrf-token");
 
-  let response = await request(session, "/checkout/shipping-info", {
+  const checkoutStart = await fetchJson<{
+    data: {
+      id: string;
+      placeOrderIdempotencyKey: string;
+    };
+  }>(session, "/api/v1/checkout/start", {
     method: "POST",
     headers: {
-      "content-type": "application/x-www-form-urlencoded",
+      "content-type": "application/json",
+      "x-csrf-token": csrf.data.csrfToken,
     },
-    body: new URLSearchParams({
-      _csrf: csrfToken,
-      checkoutAttemptId,
+    body: JSON.stringify({}),
+  });
+
+  const shippingSaved = await fetchJson<{
+    data: {
+      id: string;
+      placeOrderIdempotencyKey: string;
+    };
+  }>(session, "/api/v1/checkout/shipping-info", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-csrf-token": csrf.data.csrfToken,
+    },
+    body: JSON.stringify({
+      checkoutAttemptId: checkoutStart.data.id,
       fullName: `${params.label} User`,
       phoneNumber: "0901234567",
       addressLine1: "12 Nguyen Trai",
@@ -202,57 +201,51 @@ async function runCheckoutFlow(params: {
       district: "Quan 1",
       province: "Ho Chi Minh",
       note: `${params.label}-note`,
-    }).toString(),
+    }),
   });
 
-  assert.equal(response.status, 302, `${params.label}: shipping info should redirect`);
-
-  html = (await fetchText(session, "/checkout")).text;
-  checkoutAttemptId = extractHiddenValue(html, "checkoutAttemptId");
-  csrfToken = extractMetaCsrf(html);
-
-  response = await request(session, "/checkout/payment-method", {
+  const paymentSaved = await fetchJson<{
+    data: {
+      id: string;
+      placeOrderIdempotencyKey: string;
+    };
+  }>(session, "/api/v1/checkout/payment-method", {
     method: "POST",
     headers: {
-      "content-type": "application/x-www-form-urlencoded",
+      "content-type": "application/json",
+      "x-csrf-token": csrf.data.csrfToken,
     },
-    body: new URLSearchParams({
-      _csrf: csrfToken,
-      checkoutAttemptId,
+    body: JSON.stringify({
+      checkoutAttemptId: shippingSaved.data.id,
       paymentMethod: params.paymentMethod,
-    }).toString(),
+    }),
   });
 
-  assert.equal(response.status, 302, `${params.label}: payment method should redirect`);
-
-  html = (await fetchText(session, "/checkout")).text;
-  checkoutAttemptId = extractHiddenValue(html, "checkoutAttemptId");
-  csrfToken = extractMetaCsrf(html);
-  const idempotencyKey = extractHiddenValue(html, "idempotencyKey");
-
-  response = await request(session, "/orders", {
+  const placedOrder = await fetchJson<{
+    data: {
+      orderNumber: string;
+    };
+  }>(session, "/api/v1/orders", {
     method: "POST",
     headers: {
-      "content-type": "application/x-www-form-urlencoded",
+      "content-type": "application/json",
+      "x-csrf-token": csrf.data.csrfToken,
     },
-    body: new URLSearchParams({
-      _csrf: csrfToken,
-      checkoutAttemptId,
-      idempotencyKey,
-    }).toString(),
+    body: JSON.stringify({
+      checkoutAttemptId: paymentSaved.data.id,
+      idempotencyKey: paymentSaved.data.placeOrderIdempotencyKey,
+    }),
   });
 
-  assert.equal(response.status, 302, `${params.label}: place order should redirect`);
-  const orderDetailPath = response.headers.get("location");
-  assert.ok(orderDetailPath?.includes("/orders/"), `${params.label}: order redirect path missing`);
-  const orderNumber = orderDetailPath!.split("/")[2]!;
+  const orderNumber = placedOrder.data.orderNumber;
+  const orderDetailPath = `/orders/${orderNumber}`;
 
   return {
     sessionId,
     cartId,
-    checkoutAttemptId,
+    checkoutAttemptId: paymentSaved.data.id,
     orderNumber,
-    orderDetailPath: orderDetailPath!,
+    orderDetailPath,
   };
 }
 
@@ -268,18 +261,34 @@ async function placeOrderApiTwiceWithSameIdempotency(params: {
   const ownerSessionId = await bootstrapSession(session);
   await addBookToCart(session, "atomic-habits", 1);
 
-  let html = (await fetchText(session, "/checkout")).text;
-  let checkoutAttemptId = extractHiddenValue(html, "checkoutAttemptId");
-  let csrfToken = extractMetaCsrf(html);
-
-  await request(session, "/checkout/shipping-info", {
+  const csrf = await fetchJson<{ data: { csrfToken: string } }>(session, "/csrf-token");
+  const checkoutStart = await fetchJson<{
+    data: {
+      id: string;
+      placeOrderIdempotencyKey: string;
+    };
+  }>(session, "/api/v1/checkout/start", {
     method: "POST",
     headers: {
-      "content-type": "application/x-www-form-urlencoded",
+      "content-type": "application/json",
+      "x-csrf-token": csrf.data.csrfToken,
     },
-    body: new URLSearchParams({
-      _csrf: csrfToken,
-      checkoutAttemptId,
+    body: JSON.stringify({}),
+  });
+
+  const shippingSaved = await fetchJson<{
+    data: {
+      id: string;
+      placeOrderIdempotencyKey: string;
+    };
+  }>(session, "/api/v1/checkout/shipping-info", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-csrf-token": csrf.data.csrfToken,
+    },
+    body: JSON.stringify({
+      checkoutAttemptId: checkoutStart.data.id,
       fullName: "Idempotency Test",
       phoneNumber: "0901234567",
       addressLine1: "45 Le Loi",
@@ -287,47 +296,44 @@ async function placeOrderApiTwiceWithSameIdempotency(params: {
       district: "Quan 1",
       province: "Ho Chi Minh",
       note: "idem",
-    }).toString(),
+    }),
   });
 
-  html = (await fetchText(session, "/checkout")).text;
-  checkoutAttemptId = extractHiddenValue(html, "checkoutAttemptId");
-  csrfToken = extractMetaCsrf(html);
-
-  await request(session, "/checkout/payment-method", {
+  const paymentSaved = await fetchJson<{
+    data: {
+      id: string;
+      placeOrderIdempotencyKey: string;
+    };
+  }>(session, "/api/v1/checkout/payment-method", {
     method: "POST",
     headers: {
-      "content-type": "application/x-www-form-urlencoded",
+      "content-type": "application/json",
+      "x-csrf-token": csrf.data.csrfToken,
     },
-    body: new URLSearchParams({
-      _csrf: csrfToken,
-      checkoutAttemptId,
+    body: JSON.stringify({
+      checkoutAttemptId: shippingSaved.data.id,
       paymentMethod: params.paymentMethod,
-    }).toString(),
+    }),
   });
 
-  html = (await fetchText(session, "/checkout")).text;
-  checkoutAttemptId = extractHiddenValue(html, "checkoutAttemptId");
-  csrfToken = extractMetaCsrf(html);
-  const idempotencyKey = extractHiddenValue(html, "idempotencyKey");
-
-  const body = new URLSearchParams({
-    _csrf: csrfToken,
-    checkoutAttemptId,
-    idempotencyKey,
-  }).toString();
+  const body = JSON.stringify({
+    checkoutAttemptId: paymentSaved.data.id,
+    idempotencyKey: paymentSaved.data.placeOrderIdempotencyKey,
+  });
 
   const first = await request(session, "/api/v1/orders", {
     method: "POST",
     headers: {
-      "content-type": "application/x-www-form-urlencoded",
+      "content-type": "application/json",
+      "x-csrf-token": csrf.data.csrfToken,
     },
     body,
   });
   const second = await request(session, "/api/v1/orders", {
     method: "POST",
     headers: {
-      "content-type": "application/x-www-form-urlencoded",
+      "content-type": "application/json",
+      "x-csrf-token": csrf.data.csrfToken,
     },
     body,
   });

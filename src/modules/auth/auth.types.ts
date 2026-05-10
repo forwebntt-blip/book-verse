@@ -15,6 +15,11 @@ export interface ParsedLoginPayload {
   returnTo?: string;
 }
 
+export interface ParsedAccountProfileUpdatePayload {
+  fullName: string;
+  phoneNumber?: string;
+}
+
 export interface AuthMeViewModel {
   isAuthenticated: boolean;
   user: AuthenticatedUserDto | null;

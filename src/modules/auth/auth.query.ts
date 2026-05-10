@@ -1,6 +1,10 @@
 import type { Request } from "express";
 import { AppError } from "../../shared/errors/app-error";
-import type { ParsedLoginPayload, ParsedRegisterPayload } from "./auth.types";
+import type {
+  ParsedAccountProfileUpdatePayload,
+  ParsedLoginPayload,
+  ParsedRegisterPayload,
+} from "./auth.types";
 
 function getSingleValue(value: unknown): string | undefined {
   if (Array.isArray(value)) {
@@ -118,5 +122,14 @@ export function parseLoginPayload(body: Request["body"]): ParsedLoginPayload {
     email: normalizeEmail(body.email),
     password: requireTrimmedString(body.password, "password", { maxLength: 100 }),
     returnTo: buildSafeAuthReturnToPath(body.returnTo),
+  };
+}
+
+export function parseAccountProfileUpdatePayload(
+  body: Request["body"],
+): ParsedAccountProfileUpdatePayload {
+  return {
+    fullName: requireTrimmedString(body.fullName, "fullName", { maxLength: 120 }),
+    phoneNumber: normalizeOptionalPhoneNumber(body.phoneNumber),
   };
 }

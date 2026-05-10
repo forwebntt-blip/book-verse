@@ -29,14 +29,14 @@ import type {
   SearchSuggestionsResponse,
 } from "./search.types";
 
-const SEARCH_PAGE_SIZE = 6;
+const SEARCH_PAGE_SIZE = 5;
 const SEARCH_CANDIDATE_LIMIT = 80;
 const DISCOVERY_LIMIT = 4;
 
 const AVAILABILITY_LABELS = {
-  [AVAILABILITY_STATUS.IN_STOCK]: "C?n h?ng",
-  [AVAILABILITY_STATUS.LOW_STOCK]: "S?p h?t h?ng",
-  [AVAILABILITY_STATUS.OUT_OF_STOCK]: "T?m h?t h?ng",
+  [AVAILABILITY_STATUS.IN_STOCK]: "Còn hàng",
+  [AVAILABILITY_STATUS.LOW_STOCK]: "Sắp hết hàng",
+  [AVAILABILITY_STATUS.OUT_OF_STOCK]: "Tạm hết hàng",
 } as const;
 
 const SEARCH_BASE_ORDER: Prisma.BookOrderByWithRelationInput[] = [
@@ -66,8 +66,8 @@ function buildAnalytics(
 
 function buildBreadcrumb(): BreadcrumbItem[] {
   return [
-    { label: "Trang ch?", href: "/" },
-    { label: "T?m ki?m", active: true },
+    { label: "Trang chủ", href: "/" },
+    { label: "Tìm kiếm", active: true },
   ];
 }
 
@@ -89,23 +89,23 @@ function buildBadges(book: StorefrontBookRecord): ProductBadgeViewModel[] {
   const badges: ProductBadgeViewModel[] = [];
 
   if (book.isFeatured) {
-    badges.push({ label: "N?i b?t", tone: "featured" });
+    badges.push({ label: "Nổi bật", tone: "featured" });
   }
 
   if (book.isBestseller) {
-    badges.push({ label: "B?n ch?y", tone: "bestseller" });
+    badges.push({ label: "Bán chạy", tone: "bestseller" });
   }
 
   if (book.isRecommended) {
-    badges.push({ label: "G?i ?", tone: "recommended" });
+    badges.push({ label: "Gợi ý", tone: "recommended" });
   }
 
   if (book.availabilityStatus === AVAILABILITY_STATUS.LOW_STOCK) {
-    badges.push({ label: "S?p h?t", tone: "availability" });
+    badges.push({ label: "Sắp hết", tone: "availability" });
   }
 
   if (book.availabilityStatus === AVAILABILITY_STATUS.OUT_OF_STOCK) {
-    badges.push({ label: "H?t h?ng", tone: "availability" });
+    badges.push({ label: "Hết hàng", tone: "availability" });
   }
 
   return badges;
@@ -381,7 +381,7 @@ function scoreBook(book: StorefrontBookRecord, query: ParsedSearchQuery): Ranked
   );
 
   if (titleScore > 0) {
-    matchedBy.add("T?n s?ch");
+    matchedBy.add("Tên sách");
     score += titleScore;
   }
 
@@ -393,7 +393,7 @@ function scoreBook(book: StorefrontBookRecord, query: ParsedSearchQuery): Ranked
   });
 
   if (authorScore > 0) {
-    matchedBy.add("T?c gi?");
+    matchedBy.add("Tác giả");
     score += authorScore;
   }
 
@@ -405,7 +405,7 @@ function scoreBook(book: StorefrontBookRecord, query: ParsedSearchQuery): Ranked
   });
 
   if (publisherScore > 0) {
-    matchedBy.add("Nh? xu?t b?n");
+    matchedBy.add("Nhà xuất bản");
     score += publisherScore;
   }
 
@@ -416,13 +416,13 @@ function scoreBook(book: StorefrontBookRecord, query: ParsedSearchQuery): Ranked
   ).length;
 
   if (exactKeywordMatch) {
-    matchedBy.add("T? kh?a");
+    matchedBy.add("Từ khóa");
     score += 160;
   } else if (containsKeywordMatch) {
-    matchedBy.add("T? kh?a");
+    matchedBy.add("Từ khóa");
     score += 130;
   } else if (termKeywordMatches > 0) {
-    matchedBy.add("T? kh?a");
+    matchedBy.add("Từ khóa");
     score += termKeywordMatches * 24;
   }
 
@@ -533,10 +533,10 @@ export class SearchService {
     });
 
     return {
-      eyebrow: "Kh?m ph? nhanh",
-      title: "B?t ??u t? nh?ng t?a s?ch ?ang ???c ?u ti?n",
+      eyebrow: "Khám phá nhanh",
+      title: "Bắt đầu từ những tựa sách đang được ưu tiên",
       description:
-        "Khi ch?a c? t? kh?a c? th?, ng??i d?ng v?n c? m?t ?i?m b?t ??u r? r?ng t? s?ch n?i b?t, b?n ch?y v? ?ang c? s?n.",
+        "Khi chưa có từ khóa cụ thể, người dùng vẫn có một điểm bắt đầu rõ ràng từ sách nổi bật, bán chạy và đang có sẵn.",
       books: books.map((book, index) =>
         toProductCard(book, {
           sourceContext: "search_entry",
@@ -556,21 +556,21 @@ export class SearchService {
 
     return [
       {
-        label: "Duy?t to?n b? danh m?c",
+        label: "Duyệt toàn bộ danh mục",
         href: "/books",
-        note: "M? danh s?ch s?ch ??y ?? v? ti?p t?c l?c theo nhu c?u.",
+        note: "Mở danh sách sách đầy đủ và tiếp tục lọc theo nhu cầu.",
       },
       ...categories.map((category) => ({
-        label: `Danh m?c ${category.name}`,
+        label: `Danh mục ${category.name}`,
         href: `/categories/${category.slug}`,
-        note: category.description ?? "?i th?ng v?o m?t danh m?c ?? c? d? li?u.",
+        note: category.description ?? "Đi thẳng vào một danh mục đã có dữ liệu.",
       })),
       ...collections
         .filter((collection) => collection.publishStatus === PublishStatus.PUBLISHED)
         .map((collection) => ({
-          label: `B? s?u t?p ${collection.name}`,
+          label: `Bộ sưu tập ${collection.name}`,
           href: `/collections/${collection.slug}`,
-          note: collection.description ?? "Kh?m ph? m?t b? s?u t?p ?ang ???c xu?t b?n.",
+          note: collection.description ?? "Khám phá một bộ sưu tập đang được xuất bản.",
         })),
     ];
   }
@@ -698,10 +698,10 @@ export class SearchService {
     });
 
     return {
-      eyebrow: "Kh?ng ?? trang tr?ng",
-      title: "Th? b?t ??u t? nh?ng t?a s?ch c? kh? n?ng ph? h?p",
+      eyebrow: "Không để trang trống",
+      title: "Thử bắt đầu từ những tựa sách có khả năng phù hợp",
       description:
-        "Khi kh?ng c? k?t qu? tr?ng kh?p, storefront v?n ??a ra m?t nh?m s?ch theo lu?t ?? ng??i d?ng kh?ng b? ng?t qu?ng h?nh tr?nh kh?m ph?.",
+        "Khi không có kết quả trùng khớp, storefront vẫn đưa ra một nhóm sách theo luật để người dùng không bị ngắt quãng hành trình khám phá.",
       books: books.map((book, index) =>
         toProductCard(book, {
           sourceContext: "search_no_result_suggestions",
@@ -728,17 +728,17 @@ export class SearchService {
       ]);
 
       return {
-        title: "T?m ki?m s?ch",
+        title: "Tìm kiếm sách",
         description:
-          "T?m s?ch theo t?n s?ch, t?c gi?, t? kh?a v? nh? xu?t b?n, ??ng th?i gi? l?i l?i kh?m ph? khi ch?a c? t? kh?a c? th?.",
+          "Tìm sách theo tên sách, tác giả, từ khóa và nhà xuất bản, đồng thời giữ lại lối khám phá khi chưa có từ khóa cụ thể.",
         breadcrumb: buildBreadcrumb(),
-        pageHeading: "T?m ki?m s?ch trong storefront",
+        pageHeading: "Tìm kiếm sách trong storefront",
         pageLead:
-          "T?m theo t?n s?ch, t?c gi?, t? kh?a ho?c nh? xu?t b?n. N?u ch?a c? t? kh?a, b?n v?n c? th? b?t ??u t? c?c g?i ? b?n d??i.",
+          "Tìm theo tên sách, tác giả, từ khóa hoặc nhà xuất bản. Nếu chưa có từ khóa, bạn vẫn có thể bắt đầu từ các gợi ý bên dưới.",
         searchQuery: "",
         hasQuery: false,
         resultSummary:
-          "Nh?p t? kh?a ?? nh?n k?t qu? t?m ki?m v? c?c g?i ? m? r?ng ph? h?p v?i danh m?c hi?n t?i.",
+          "Nhập từ khóa để nhận kết quả tìm kiếm và các gợi ý mở rộng phù hợp với danh mục hiện tại.",
         fallbackNotice: null,
         matchedBy: [],
         books: [],
@@ -844,7 +844,7 @@ export class SearchService {
       breadcrumb: buildBreadcrumb(),
       pageHeading: `Kết quả tìm kiếm cho "${query.rawQuery}"`,
       pageLead:
-        "C?ng c? t?m ki?m hi?n ?u ti?n t?n s?ch, t?c gi?, nh? xu?t b?n v? t? kh?a; khi c?n s? m? r?ng theo t?ng t? ?? gi? tr?i nghi?m t?m ki?m h?u ?ch.",
+        "Công cụ tìm kiếm hiện ưu tiên tên sách, tác giả, nhà xuất bản và từ khóa; khi cần sẽ mở rộng theo tương tự để giữ trải nghiệm tìm kiếm hữu ích.",
       searchQuery: query.rawQuery,
       hasQuery: true,
       resultSummary:
@@ -853,9 +853,9 @@ export class SearchService {
           : `Tìm thấy ${totalItems} tựa sách. Đang hiển thị ${pagination?.from ?? 1}-${pagination?.to ?? books.length}.`,
       fallbackNotice:
         fallbackMode === "term_expansion"
-          ? "H? th?ng kh?ng th?y k?t qu? kh?p v?i c? c?m t?, n?n ?? m? r?ng theo t?ng t? kh?a ?? t?ng kh? n?ng t?m ???c s?ch."
+          ? "Hệ thống không thấy kết quả khớp với cả cụm từ, nên đã mở rộng theo từng từ khóa để tăng khả năng tìm được sách."
           : fallbackMode === "normalized_rescore"
-            ? "H? th?ng ?? m? r?ng theo ph??ng ?n so kh?p kh?ng d?u v? x?p h?ng theo lu?t ?? tr?nh b? s?t s?ch ph? h?p."
+            ? "Hệ thống đã mở rộng theo phương án so khớp không dấu và xếp hạng theo luật để tránh bỏ sót sách phù hợp."
             : null,
       matchedBy,
       books,
@@ -863,16 +863,16 @@ export class SearchService {
       emptyState:
         totalItems === 0
           ? {
-              title: "Kh?ng t?m th?y k?t qu? tr?ng kh?p",
+              title: "Không tìm thấy kết quả trùng khớp",
               message:
                 fallbackMode !== "none"
-                  ? "H? th?ng ?? th? th?m c?c b??c m? r?ng truy v?n nh?ng v?n ch?a c? k?t qu? tr?ng kh?p. B?n c? th? ??i c?ch vi?t, th? theo t?c gi?/nh? xu?t b?n ho?c chuy?n sang c?c g?i ? b?n d??i."
-                  : "Th? ??i sang t?n t?c gi?, nh? xu?t b?n, m?t t? kh?a ng?n h?n ho?c duy?t qua c?c kh?i g?i ? b?n d??i ?? ti?p t?c kh?m ph?.",
+                  ? "Hệ thống đã thử thêm các bước mở rộng truy vấn nhưng vẫn chưa có kết quả trùng khớp. Bạn có thể đổi cách viết, thử theo tác giả/nhà xuất bản hoặc chuyển sang các gợi ý bên dưới."
+                  : "Thử đổi sang tên tác giả, nhà xuất bản, một từ khóa ngắn hơn hoặc duyệt qua các khối gợi ý bên dưới để tiếp tục khám phá.",
               resetHref: "/search",
               tips: [
-                "R?t g?n t? kh?a ?? gi? l?i nh?ng th?nh ph?n quan tr?ng nh?t.",
-                "Th? t?m theo t?n t?c gi? ho?c nh? xu?t b?n thay v? c? c?u d?i.",
-                "N?u nh? ch? ?? h?n l? t?n s?ch, h?y th? b?ng t? kh?a n?i dung.",
+                "Rút gọn từ khóa để giữ lại những thành phần quan trọng nhất.",
+                "Thử tìm theo tên tác giả hoặc nhà xuất bản thay vì cả câu dài.",
+                "Nếu nhớ chủ đề hơn là tên sách, hãy thử bằng từ khóa nội dung.",
               ],
             }
           : null,

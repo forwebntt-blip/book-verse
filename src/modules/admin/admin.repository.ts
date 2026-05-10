@@ -163,6 +163,75 @@ const STAGED_BOOK_SELECT = {
   updatedAt: true,
 } satisfies Prisma.StagedBookSelect;
 
+const ORDER_SELECT = {
+  id: true,
+  orderNumber: true,
+  userId: true,
+  sessionId: true,
+  status: true,
+  paymentStatus: true,
+  paymentMethod: true,
+  itemCount: true,
+  subtotalAmount: true,
+  shippingFeeAmount: true,
+  totalAmount: true,
+  customerEmail: true,
+  customerFullName: true,
+  customerPhoneNumber: true,
+  internalNote: true,
+  cancellationReason: true,
+  placedAt: true,
+  confirmedAt: true,
+  packedAt: true,
+  shippedAt: true,
+  deliveredAt: true,
+  cancelledAt: true,
+  address: {
+    select: {
+      recipientName: true,
+      phoneNumber: true,
+      addressLine1: true,
+      ward: true,
+      district: true,
+      province: true,
+      note: true,
+    },
+  },
+  items: {
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      id: true,
+      bookSlug: true,
+      bookTitle: true,
+      authorName: true,
+      publisherName: true,
+      quantity: true,
+      unitPriceAmount: true,
+      lineSubtotalAmount: true,
+    },
+  },
+  paymentRecords: {
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      id: true,
+      status: true,
+      method: true,
+      amount: true,
+      attemptNumber: true,
+      externalReference: true,
+      proofUrl: true,
+      note: true,
+      paidAt: true,
+      verifiedAt: true,
+      failedAt: true,
+    },
+  },
+} satisfies Prisma.OrderSelect;
+
 export type AdminAuthorRecord = Prisma.AuthorGetPayload<{
   select: typeof AUTHOR_SELECT;
 }>;
@@ -189,6 +258,10 @@ export type AdminImportJobRecord = Prisma.ContentImportJobGetPayload<{
 
 export type AdminStagedBookRecord = Prisma.StagedBookGetPayload<{
   select: typeof STAGED_BOOK_SELECT;
+}>;
+
+export type AdminOrderRecord = Prisma.OrderGetPayload<{
+  select: typeof ORDER_SELECT;
 }>;
 
 async function getDb(db?: DbClient) {
@@ -693,6 +766,82 @@ export class AdminRepository {
       where: { id },
       data: input,
       select: STAGED_BOOK_SELECT,
+    });
+  }
+
+  async listOrders(params: {
+    q?: string;
+    orderStatus?: Prisma.OrderWhereInput["status"];
+    paymentStatus?: Prisma.OrderWhereInput["paymentStatus"];
+  } = {}, db?: DbClient): Promise<AdminOrderRecord[]> {
+    const client = await getDb(db);
+
+    return client.order.findMany({
+      where: {
+        ...(params.q
+          ? {
+              OR: [
+                { orderNumber: { contains: params.q, mode: "insensitive" } },
+                { customerFullName: { contains: params.q, mode: "insensitive" } },
+                { customerPhoneNumber: { contains: params.q, mode: "insensitive" } },
+                { customerEmail: { contains: params.q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+        ...(params.orderStatus ? { status: params.orderStatus } : {}),
+        ...(params.paymentStatus ? { paymentStatus: params.paymentStatus } : {}),
+      },
+      orderBy: [{ placedAt: "desc" }, { createdAt: "desc" }],
+      select: ORDER_SELECT,
+    });
+  }
+
+  async findOrderByOrderNumber(
+    orderNumber: string,
+    db?: DbClient,
+  ): Promise<AdminOrderRecord | null> {
+    const client = await getDb(db);
+
+    return client.order.findUnique({
+      where: { orderNumber },
+      select: ORDER_SELECT,
+    });
+  }
+
+  async updateOrder(
+    orderNumber: string,
+    input: Prisma.OrderUpdateInput,
+    db?: DbClient,
+  ): Promise<AdminOrderRecord> {
+    const client = await getDb(db);
+
+    return client.order.update({
+      where: { orderNumber },
+      data: input,
+      select: ORDER_SELECT,
+    });
+  }
+
+  async updateLatestPaymentRecordForOrder(
+    orderId: string,
+    input: Prisma.PaymentRecordUpdateInput,
+    db?: DbClient,
+  ): Promise<void> {
+    const client = await getDb(db);
+
+    const latestPaymentRecord = await client.paymentRecord.findFirst({
+      where: { orderId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+
+    if (!latestPaymentRecord) {
+      return;
+    }
+
+    await client.paymentRecord.update({
+      where: { id: latestPaymentRecord.id },
+      data: input,
     });
   }
 }

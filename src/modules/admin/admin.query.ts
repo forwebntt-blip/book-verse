@@ -2,12 +2,18 @@ import type { Request } from "express";
 import {
   AVAILABILITY_STATUS,
   CONTENT_IMPORT_JOB_STATUS,
+  ORDER_STATUS,
+  PAYMENT_STATUS,
   PUBLISH_STATUS,
   STAGED_BOOK_STATUS,
 } from "../../shared/contracts";
 import { AppError } from "../../shared/errors/app-error";
 import type {
   ParsedAdminListQuery,
+  ParsedAdminOrderCancelPayload,
+  ParsedAdminOrderNotePayload,
+  ParsedAdminOrderPaymentPayload,
+  ParsedAdminOrderStatusPayload,
   ParsedAuthorPayload,
   ParsedBookPayload,
   ParsedBookStatusPayload,
@@ -299,6 +305,16 @@ export function parseAdminListQuery(query: Request["query"]): ParsedAdminListQue
       "stagedStatus",
       Object.values(STAGED_BOOK_STATUS),
     ),
+    orderStatus: parseEnumValue(
+      query.orderStatus,
+      "orderStatus",
+      Object.values(ORDER_STATUS),
+    ),
+    paymentStatus: parseEnumValue(
+      query.paymentStatus,
+      "paymentStatus",
+      Object.values(PAYMENT_STATUS),
+    ),
   };
 }
 
@@ -434,6 +450,47 @@ export function parseBookStatusPayload(body: Request["body"]): ParsedBookStatusP
   return {
     publishStatus,
     availabilityStatus,
+  };
+}
+
+export function parseAdminOrderStatusPayload(
+  body: Request["body"],
+): ParsedAdminOrderStatusPayload {
+  const status = parseEnumValue(
+    body.status,
+    "status",
+    Object.values(ORDER_STATUS),
+    { required: true },
+  );
+
+  return {
+    status: status!,
+  };
+}
+
+export function parseAdminOrderCancelPayload(
+  body: Request["body"],
+): ParsedAdminOrderCancelPayload {
+  return {
+    reason: normalizeOptionalText(body.reason, "reason", 255),
+  };
+}
+
+export function parseAdminOrderPaymentPayload(
+  body: Request["body"],
+): ParsedAdminOrderPaymentPayload {
+  return {
+    externalReference: normalizeOptionalText(body.externalReference, "externalReference", 120),
+    note: normalizeOptionalText(body.note, "note", 500),
+    proofUrl: normalizeOptionalText(body.proofUrl, "proofUrl", 1000),
+  };
+}
+
+export function parseAdminOrderNotePayload(
+  body: Request["body"],
+): ParsedAdminOrderNotePayload {
+  return {
+    internalNote: normalizeOptionalText(body.internalNote, "internalNote", 2000),
   };
 }
 

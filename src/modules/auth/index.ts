@@ -14,7 +14,12 @@ import {
   buildRegisterPageModel,
 } from "./auth.page-models";
 import { AuthService } from "./auth.service";
-import { buildSafeAuthReturnToPath, parseLoginPayload, parseRegisterPayload } from "./auth.query";
+import {
+  buildSafeAuthReturnToPath,
+  parseAccountProfileUpdatePayload,
+  parseLoginPayload,
+  parseRegisterPayload,
+} from "./auth.query";
 import type { AccountProfileViewModel } from "./auth.types";
 
 const authService = new AuthService();
@@ -352,6 +357,68 @@ export function createAuthModuleRouter(): Router {
             total: makeMoney(order.totalAmount),
             placedAt: order.placedAt.toISOString(),
           })),
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/account/profile", requireAuthenticatedUser, async (req, res, next) => {
+    try {
+      const userId = req.authContext.userId;
+
+      if (!userId) {
+        throw new AppError({
+          statusCode: 401,
+          code: "AUTH_REQUIRED",
+          message: "Ban can dang nhap de truy cap tai nguyen nay.",
+        });
+      }
+
+      const profile = await authService.getProfile(userId);
+      res.json(
+        successResponse({
+          profile: {
+            id: profile.id,
+            email: profile.email,
+            fullName: profile.fullName,
+            phoneNumber: profile.phoneNumber,
+            role: profile.role,
+          },
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch("/account/profile", requireAuthenticatedUser, async (req, res, next) => {
+    try {
+      const userId = req.authContext.userId;
+
+      if (!userId) {
+        throw new AppError({
+          statusCode: 401,
+          code: "AUTH_REQUIRED",
+          message: "Ban can dang nhap de truy cap tai nguyen nay.",
+        });
+      }
+
+      const profile = await authService.updateProfile(
+        userId,
+        parseAccountProfileUpdatePayload(req.body),
+      );
+
+      res.json(
+        successResponse({
+          profile: {
+            id: profile.id,
+            email: profile.email,
+            fullName: profile.fullName,
+            phoneNumber: profile.phoneNumber,
+            role: profile.role,
+          },
         }),
       );
     } catch (error) {

@@ -137,7 +137,7 @@ export class CheckoutService {
       throw new AppError({
         statusCode: 404,
         code: "CART_NOT_FOUND",
-        message: "Kh?ng t?m th?y gi? h?ng h?p l? ?? thanh to?n.",
+        message: "Không tìm thấy giỏ hàng hợp lý để thanh toán.",
       });
     }
   }
@@ -680,7 +680,7 @@ export class CheckoutService {
               isCompleted: false,
             }),
             lastErrorCode: errorCode,
-            lastErrorMessage: "Thanh to?n ch?a ?? th?ng tin giao h?ng ho?c ph??ng th?c thanh to?n.",
+            lastErrorMessage: "Thanh toán chưa đủ thông tin giao hàng hoặc phương thức thanh toán.",
           },
           tx,
         );
@@ -692,13 +692,13 @@ export class CheckoutService {
           paymentMethod: refreshedAttempt.paymentMethod,
           totalAmount: refreshedAttempt.totalAmount,
           errorCode,
-          message: "Thanh to?n ch?a ?? ?i?u ki?n ?? t?o ??n h?ng.",
+          message: "Thanh toán chưa đủ điều kiện để tạo đơn hàng.",
         });
 
         throw new AppError({
           statusCode: 409,
           code: errorCode,
-          message: "Thanh to?n ch?a ?? th?ng tin giao h?ng v? ph??ng th?c thanh to?n ?? t?o ??n h?ng.",
+          message: "Thanh toán chưa đủ thông tin giao hàng và phương thức thanh toán để tạo đơn hàng..",
         });
       }
 
@@ -804,7 +804,7 @@ export class CheckoutService {
       throw new AppError({
         statusCode: 404,
         code: "ORDER_NOT_FOUND",
-        message: "Kh?ng t?m th?y ??n h?ng.",
+        message: "Không tìm thấy đơn hàng.",
       });
     }
 
@@ -823,7 +823,7 @@ export class CheckoutService {
         throw new AppError({
           statusCode: 404,
           code: "ORDER_NOT_FOUND",
-          message: "Kh?ng t?m th?y ??n h?ng c?n h?y.",
+          message: "Không tìm thấy đơn hàng cần huỷ.",
         });
       }
 
@@ -903,7 +903,7 @@ export class CheckoutService {
         throw new AppError({
           statusCode: 404,
           code: "ORDER_NOT_FOUND",
-          message: "Kh?ng t?m th?y ??n h?ng c?n x?c nh?n chuy?n kho?n.",
+          message: "Không tìm thấy đơn hàng cần xác nhận chuyển khoản.",
         });
       }
 
@@ -911,7 +911,7 @@ export class CheckoutService {
         throw new AppError({
           statusCode: 409,
           code: "INVALID_PAYMENT_METHOD",
-          message: "Ch? ??n chuy?n kho?n ng?n h?ng m?i c? th? ??nh d?u l? ?? nh?n ti?n.",
+          message: "Chỉ đơn chuyển khoản ngân hàng mới có thể đánh dấu là đã nhận tiền.",
         });
       }
 
@@ -1048,13 +1048,13 @@ export class CheckoutService {
 
   buildOrderSuccessPageModel(order: OrderRecord): OrderSuccessPageModel {
     return {
-      title: `??t h?ng th?nh c?ng ${order.orderNumber}`,
-      description: "Trang x?c nh?n sau khi t?o ??n h?ng th?nh c?ng.",
-      pageHeading: "??t h?ng th?nh c?ng",
+      title: `Đặt hàng thành công ${order.orderNumber}`,
+      description: "Trang xác nhận sau khi tạo đơn hàng thành công.",
+      pageHeading: "Đặt hàng thành công",
       pageLead:
         order.paymentMethod === PAYMENT_METHOD.BANK_TRANSFER
-          ? "??n ?? ???c t?o. H?y ho?n t?t chuy?n kho?n theo h??ng d?n b?n d??i ?? c?a h?ng x?c nh?n."
-          : "??n ?? ???c t?o. B?n s? thanh to?n khi nh?n h?ng.",
+          ? "Đơn đã được tạo. Hãy hoàn tất chuyển khoản theo hướng dẫn bên dưới để cửa hàng xác nhận."
+          : "Đơn đã được tạo. Bạn sẽ thanh toán khi nhận hàng.",
       continueShoppingHref: "/books",
       orderDetailHref: `/orders/${order.orderNumber}`,
       order: this.buildOrderViewModel(order),
@@ -1079,10 +1079,10 @@ export class CheckoutService {
 
   buildOrderDetailPageModel(order: OrderRecord): OrderDetailPageModel {
     return {
-      title: `??n h?ng ${order.orderNumber}`,
-      description: "Theo d?i ??n h?ng v? tr?ng th?i thanh to?n theo d? li?u t? m?y ch?.",
-      pageHeading: `??n h?ng ${order.orderNumber}`,
-      pageLead: "Chi ti?t ??n h?ng, ??a ch? giao h?ng v? l?ch s? thanh to?n ???c hi?n th? t? backend.",
+      title: `Đơn hàng ${order.orderNumber}`,
+      description: "Theo dõi đơn hàng và trạng thái thanh toán từ dữ liệu từ máy chủ.",
+      pageHeading: `Đơn hàng ${order.orderNumber}`,
+      pageLead: "Chi tiết đơn hàng, địa chỉ giao hàng và lịch sử thanh toán được hiển thị từ backend.",
       continueShoppingHref: "/books",
       order: this.buildOrderViewModel(order),
       analytics: {
@@ -1136,7 +1136,7 @@ export class CheckoutService {
       throw new AppError({
         statusCode: 403,
         code: "ORDER_ACCESS_DENIED",
-        message: "B?n kh?ng c? quy?n xem ??n h?ng n?y.",
+        message: "Bạn không có quyền xem đơn hàng này.",
       });
     }
 

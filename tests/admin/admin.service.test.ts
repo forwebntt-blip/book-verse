@@ -115,3 +115,136 @@ test("deleteCategory surfaces a business error when category is still referenced
       error instanceof AppError && error.code === "CATEGORY_DELETE_BLOCKED",
   );
 });
+
+test("updateOrderStatus rejects invalid transition from delivered back to packed", async () => {
+  const service = new AdminService({
+    repository: {
+      findOrderByOrderNumber: async () =>
+        ({
+          id: "order-1",
+          orderNumber: "ORD-1",
+          status: "DELIVERED",
+          paymentStatus: "PAID",
+          paymentMethod: "COD",
+          itemCount: 1,
+          totalAmount: 100000,
+          customerFullName: "A",
+          customerPhoneNumber: "B",
+          customerEmail: null,
+          internalNote: null,
+          cancellationReason: null,
+          placedAt: new Date(),
+          confirmedAt: new Date(),
+          packedAt: new Date(),
+          shippedAt: new Date(),
+          deliveredAt: new Date(),
+          cancelledAt: null,
+          address: null,
+          items: [],
+          paymentRecords: [],
+        }) as never,
+    } as never,
+  });
+
+  await assert.rejects(
+    () => service.updateOrderStatus("ORD-1", { status: "PACKED" }, "admin-1"),
+    (error: unknown) =>
+      error instanceof AppError && error.code === "INVALID_ORDER_TRANSITION",
+  );
+});
+
+test("updateOrderStatus blocks confirming bank transfer order before payment is paid", async () => {
+  const service = new AdminService({
+    repository: {
+      findOrderByOrderNumber: async () =>
+        ({
+          id: "order-1",
+          orderNumber: "ORD-1",
+          status: "AWAITING_TRANSFER",
+          paymentStatus: "AWAITING_VERIFICATION",
+          paymentMethod: "BANK_TRANSFER",
+          itemCount: 1,
+          totalAmount: 100000,
+          customerFullName: "A",
+          customerPhoneNumber: "B",
+          customerEmail: null,
+          internalNote: null,
+          cancellationReason: null,
+          placedAt: new Date(),
+          confirmedAt: null,
+          packedAt: null,
+          shippedAt: null,
+          deliveredAt: null,
+          cancelledAt: null,
+          address: null,
+          items: [],
+          paymentRecords: [],
+        }) as never,
+    } as never,
+  });
+
+  await assert.rejects(
+    () => service.updateOrderStatus("ORD-1", { status: "CONFIRMED" }, "admin-1"),
+    (error: unknown) =>
+      error instanceof AppError && error.code === "ORDER_PAYMENT_NOT_CONFIRMED",
+  );
+});
+
+test("updateOrderInternalNote persists note through repository update", async () => {
+  const service = new AdminService({
+    repository: {
+      findOrderByOrderNumber: async () =>
+        ({
+          id: "order-1",
+          orderNumber: "ORD-1",
+          status: "PLACED",
+          paymentStatus: "PENDING",
+          paymentMethod: "COD",
+          itemCount: 1,
+          totalAmount: 100000,
+          customerFullName: "A",
+          customerPhoneNumber: "B",
+          customerEmail: null,
+          internalNote: null,
+          cancellationReason: null,
+          placedAt: new Date("2026-05-10T00:00:00.000Z"),
+          confirmedAt: null,
+          packedAt: null,
+          shippedAt: null,
+          deliveredAt: null,
+          cancelledAt: null,
+          address: null,
+          items: [],
+          paymentRecords: [],
+        }) as never,
+      updateOrder: async (_orderNumber: string, input: Record<string, unknown>) =>
+        ({
+          id: "order-1",
+          orderNumber: "ORD-1",
+          status: "PLACED",
+          paymentStatus: "PENDING",
+          paymentMethod: "COD",
+          itemCount: 1,
+          totalAmount: 100000,
+          customerFullName: "A",
+          customerPhoneNumber: "B",
+          customerEmail: null,
+          internalNote: input.internalNote,
+          cancellationReason: null,
+          placedAt: new Date("2026-05-10T00:00:00.000Z"),
+          confirmedAt: null,
+          packedAt: null,
+          shippedAt: null,
+          deliveredAt: null,
+          cancelledAt: null,
+          address: null,
+          items: [],
+          paymentRecords: [],
+        }) as never,
+    } as never,
+  });
+
+  const updated = await service.updateOrderInternalNote("ORD-1", { internalNote: "Call shipper before 5pm" }, "admin-1");
+
+  assert.equal(updated.internalNote, "Call shipper before 5pm");
+});

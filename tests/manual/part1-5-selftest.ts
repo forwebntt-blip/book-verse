@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { disconnectPrisma, getPrismaClient } from "../../src/infra/database/prisma";
 
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 
 interface HttpSession {
   cookie: string;
