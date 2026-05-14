@@ -1,6 +1,6 @@
 # Bookverse
 
-Bookverse is a full-stack online bookstore built with:
+Bookverse is a full-stack online bookstore project built with:
 
 - `Express 5 + TypeScript` for the backend
 - `React 18 + Vite` for the frontend
@@ -108,7 +108,7 @@ Main variables are documented in `.env.example`, including:
 ## Project Structure
 
 ```text
-duan3/
+book-verse/
 |-- src/            backend, modules, middleware, server
 |-- client/         React + Vite frontend
 |-- prisma/         schema, migrations, seed
@@ -130,3 +130,9 @@ duan3/
   - `npm run prisma:seed`
   - `npm run build`
   - `npm start`
+
+## Repository
+
+GitHub repository:
+
+- [https://github.com/forwebntt-blip/book-verse](https://github.com/forwebntt-blip/book-verse)
